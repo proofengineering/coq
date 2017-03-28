@@ -399,6 +399,10 @@ let check_vio_tasks () =
       true (List.rev !vio_tasks) in
   if not rc then exit 1
 
+let depsfile = ref ""
+let depsfile_specified = ref false
+let set_depsfile s = depsfile := s; depsfile_specified := true
+
 let buf = Buffer.create 1000
 
 let formatter out =
@@ -412,7 +416,8 @@ let formatter out =
 
 let check_vio_depends_tasks () =
   if not (List.is_empty !vio_depends_tasks) then begin
-    let fmt = formatter None in
+    let out = if !depsfile_specified then Some (open_out !depsfile) else None in
+    let fmt = formatter out in
     let delim = ref "" in
     pp_with fmt (str "[\n");
     let rc =
@@ -424,6 +429,7 @@ let check_vio_depends_tasks () =
       msg_notice (str (Buffer.contents buf));
       Buffer.reset buf
     end;
+    Option.iter close_out out;
     if not rc then exit 1
   end
 
@@ -557,6 +563,7 @@ let parse_args arglist =
     |"-vio2vo" -> add_compile false (next ()); Flags.compilation_mode := Vio2Vo
     |"-toploop" -> set_toploop (next ())
     |"-w" -> set_warning (next ())
+    |"-depends-file" -> set_depsfile (next ())
 
     (* Options with zero arg *)
     |"-async-queries-always-delegate"
