@@ -14,11 +14,11 @@ let check_vio (ts,f) =
   Stm.set_compilation_hints long_f_dot_v;
   List.fold_left (fun acc ids -> Stm.check_task f tasks ids && acc) true ts
 
-let check_vio_depends (ts,f) =
+let check_vio_depends (ts,f) fmt delim =
   Dumpglob.noglob ();
   let long_f_dot_v, _, _, _, _, tasks, _ = Library.load_library_todo f in
   Stm.set_compilation_hints long_f_dot_v;
-  List.fold_left (fun acc ids -> Stm.check_task_depends f tasks ids && acc) true ts
+  List.fold_left (fun acc ids -> Stm.check_task_depends f tasks fmt delim ids && acc) true ts
 
 module Worker = Spawn.Sync(struct end)
 

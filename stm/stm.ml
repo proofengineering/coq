@@ -1214,7 +1214,7 @@ and Slaves : sig
   type 'a tasks = (('a,VCS.vcs) Stateid.request * bool) list
   val dump_snapshot : unit -> Future.UUID.t tasks
   val check_task : string -> int tasks -> int -> bool
-  val check_task_depends : string -> int tasks -> int -> bool
+  val check_task_depends : string -> int tasks -> Format.formatter -> string ref -> int -> bool
   val info_tasks : 'a tasks -> (string * float * int) list
   val finish_task :
     string ->
@@ -1419,18 +1419,7 @@ end = struct (* {{{ *)
       pp_with fmt (str s);
       delim := ",\n"
 
-  let buf = Buffer.create 1000
-
-  let formatter out =
-    let fmt =
-      match out with
-      | Some oc -> Pp_control.with_output_to oc
-      | None -> Buffer.clear buf; Format.formatter_of_buffer buf
-    in
-    Format.pp_set_max_boxes fmt max_int;
-    fmt
-
-  let check_task_depends name l i =
+  let check_task_depends name l fmt delim i =
     match check_task_aux "" name l i with
     | `ERROR -> false
     | `ERROR_ADMITTED -> false
@@ -1440,16 +1429,7 @@ end = struct (* {{{ *)
           Nametab.locate_constant
             (Libnames.qualid_of_ident po.Proof_global.id) in
 	let gr = Globnames.ConstRef con in
-	let fmt = formatter None in
-	let delim = ref "" in
-	pp_with fmt (str "[\n");
 	print_body_deps fmt gr delim;
-	pp_with fmt (str "\n]\n");
-	Format.pp_print_flush fmt ();
-	if not (Int.equal (Buffer.length buf) 0) then begin
-	  msg_notice (str (Buffer.contents buf));
-	  Buffer.reset buf
-	end;
 	true
 
   let info_tasks l =
@@ -2158,11 +2138,11 @@ let check_task name (tasks,rcbackup) i =
     VCS.restore vcs;
     rc
   with e when Errors.noncritical e -> VCS.restore vcs; false
-let check_task_depends name (tasks,rcbackup) i =
+let check_task_depends name (tasks,rcbackup) fmt delim i =
   RemoteCounter.restore rcbackup;
   let vcs = VCS.backup () in
   try
-    let rc = Future.purify (Slaves.check_task_depends name tasks) i in
+    let rc = Future.purify (Slaves.check_task_depends name tasks fmt delim) i in
     pperr_flush ();
     VCS.restore vcs;
     rc

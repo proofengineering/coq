@@ -380,12 +380,13 @@ let get_host_port opt s =
 let get_task_list s = List.map int_of_string (Str.split (Str.regexp ",") s)
 
 let vio_tasks = ref []
-let vio_depends_tasks = ref []
 
 let add_vio_task f =
   set_batch_mode ();
   Flags.make_silent true;
   vio_tasks := f :: !vio_tasks
+
+let vio_depends_tasks = ref []
 
 let add_vio_depends_task f =
   set_batch_mode ();
@@ -398,11 +399,33 @@ let check_vio_tasks () =
       true (List.rev !vio_tasks) in
   if not rc then exit 1
 
+let buf = Buffer.create 1000
+
+let formatter out =
+  let fmt =
+    match out with
+    | Some oc -> Pp_control.with_output_to oc
+    | None -> Buffer.clear buf; Format.formatter_of_buffer buf
+  in
+  Format.pp_set_max_boxes fmt max_int;
+  fmt
+
 let check_vio_depends_tasks () =
-  let rc =
-    List.fold_left (fun acc t -> Vio_checking.check_vio_depends t && acc)
-      true (List.rev !vio_depends_tasks) in
-  if not rc then exit 1
+  if not (List.is_empty !vio_depends_tasks) then begin
+    let fmt = formatter None in
+    let delim = ref "" in
+    pp_with fmt (str "[\n");
+    let rc =
+      List.fold_left (fun acc t -> Vio_checking.check_vio_depends t fmt delim && acc)
+	true (List.rev !vio_depends_tasks) in
+    pp_with fmt (str "\n]\n");
+    Format.pp_print_flush fmt ();
+    if not (Int.equal (Buffer.length buf) 0) then begin
+      msg_notice (str (Buffer.contents buf));
+      Buffer.reset buf
+    end;
+    if not rc then exit 1
+  end
 
 let vio_files = ref []
 let vio_files_j = ref 0
