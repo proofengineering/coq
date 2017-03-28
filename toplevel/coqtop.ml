@@ -482,7 +482,7 @@ let parse_args arglist =
         let tno = get_task_list (next ()) in
         let tfile = next () in
         add_vio_task (tno,tfile)
-    |"-check-vio-tasks-depends" ->
+    |"-check-vio-depends-tasks" ->
         let tno = get_task_list (next ()) in
         let tfile = next () in
         add_vio_depends_task (tno,tfile)
@@ -652,6 +652,7 @@ let init arglist =
       schedule_vio_checking ();
       schedule_vio_compilation ();
       check_vio_tasks ();
+      check_vio_depends_tasks ();
       outputstate ()
     with any ->
       let any = Errors.push any in
