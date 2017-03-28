@@ -8,6 +8,7 @@
 
 (* [check_vio tasks file] checks the [tasks] stored in [file] *)
 val check_vio : int list * string -> bool
+val check_vio_depends : int list * string -> bool
 val schedule_vio_checking : int -> string list -> unit
 
 val schedule_vio_compilation : int -> string list -> unit

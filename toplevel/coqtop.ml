@@ -380,16 +380,28 @@ let get_host_port opt s =
 let get_task_list s = List.map int_of_string (Str.split (Str.regexp ",") s)
 
 let vio_tasks = ref []
+let vio_depends_tasks = ref []
 
 let add_vio_task f =
   set_batch_mode ();
   Flags.make_silent true;
   vio_tasks := f :: !vio_tasks
 
+let add_vio_depends_task f =
+  set_batch_mode ();
+  Flags.make_silent true;
+  vio_depends_tasks := f :: !vio_depends_tasks
+
 let check_vio_tasks () =
   let rc =
     List.fold_left (fun acc t -> Vio_checking.check_vio t && acc)
       true (List.rev !vio_tasks) in
+  if not rc then exit 1
+
+let check_vio_depends_tasks () =
+  let rc =
+    List.fold_left (fun acc t -> Vio_checking.check_vio_depends t && acc)
+      true (List.rev !vio_depends_tasks) in
   if not rc then exit 1
 
 let vio_files = ref []
@@ -470,6 +482,10 @@ let parse_args arglist =
         let tno = get_task_list (next ()) in
         let tfile = next () in
         add_vio_task (tno,tfile)
+    |"-check-vio-tasks-depends" ->
+        let tno = get_task_list (next ()) in
+        let tfile = next () in
+        add_vio_depends_task (tno,tfile)
     |"-schedule-vio-checking" ->
         vio_checking := true;
         set_vio_checking_j opt (next ());

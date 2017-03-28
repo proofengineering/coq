@@ -65,6 +65,7 @@ val reset_task_queue : unit -> unit
 (* A .vio contains tasks to be completed *)
 type tasks
 val check_task : string -> tasks -> int -> bool
+val check_task_depends : string -> tasks -> int -> bool
 val info_tasks : tasks -> (string * float * int) list
 val finish_tasks : string ->
   Library.seg_univ -> Library.seg_discharge -> Library.seg_proofs ->

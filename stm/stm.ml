@@ -1214,6 +1214,7 @@ and Slaves : sig
   type 'a tasks = (('a,VCS.vcs) Stateid.request * bool) list
   val dump_snapshot : unit -> Future.UUID.t tasks
   val check_task : string -> int tasks -> int -> bool
+  val check_task_depends : string -> int tasks -> int -> bool
   val info_tasks : 'a tasks -> (string * float * int) list
   val finish_task :
     string ->
@@ -1333,6 +1334,123 @@ end = struct (* {{{ *)
     match check_task_aux "" name l i with
     | `OK _ | `OK_ADMITTED -> true
     | `ERROR | `ERROR_ADMITTED -> false
+
+  module Data = struct
+    type t = unit Globnames.Refmap.t
+    let empty = Globnames.Refmap.empty
+    let add gref d =
+      Globnames.Refmap.add gref () d
+    let fold f d acc = Globnames.Refmap.fold f d acc
+  end
+
+  let add_identifier (x:Names.identifier)(d:Data.t) =
+    failwith
+      (Printf.sprintf "Depends does not expect to find plain identifiers: %s" (Names.string_of_id x))
+
+  let add_sort (s:Term.sorts)(d:Data.t) = d
+
+  let add_constant (cst:Names.constant)(d:Data.t) =
+    Data.add (Globnames.ConstRef cst) d
+
+  let add_inductive ((k,i):Names.inductive)(d:Data.t) =
+    Data.add (Globnames.IndRef (k, i)) d
+
+  let collect_long_names (c:Term.constr) (acc:Data.t) =
+    let rec add c acc =
+      match Term.kind_of_term c with
+        Term.Rel _ -> acc
+      | Term.Var x -> add_identifier x acc
+      | Term.Meta _ -> assert false
+      | Term.Evar _ -> assert false
+      | Term.Sort s -> add_sort s acc
+      | Term.Cast (c,_,t) -> add c (add t acc)
+      | Term.Prod (n,t,c) -> add t (add c acc)
+      | Term.Lambda (n,t,c) -> add t (add c acc)
+      | Term.LetIn (_,v,t,c) -> add v (add t (add c acc))
+      | Term.App (c,ca) -> add c (Array.fold_right add ca acc)
+      | Term.Const cst -> add_constant (Univ.out_punivs cst) acc
+      | Term.Ind i -> add_inductive (Univ.out_punivs i) acc
+      | Term.Construct cnst ->
+	let (i,_) = Univ.out_punivs cnst in add_inductive i acc
+      | Term.Case ({Term.ci_ind=i},c,t,ca) ->
+        add_inductive i (add c (add t (Array.fold_right add ca acc)))
+      | Term.Fix(_,(_,ca,ca')) ->
+        Array.fold_right add ca (Array.fold_right add ca' acc)
+      | Term.CoFix(_,(_,ca,ca')) ->
+        Array.fold_right add ca (Array.fold_right add ca' acc)
+      | Term.Proj(p, c) -> add c acc
+    in add c acc
+
+  let collect_body_deps gref =
+    match gref with
+    | Globnames.VarRef _ -> Data.empty
+    | Globnames.ConstRef cst ->
+      let cb = Environ.lookup_constant cst (Global.env()) in
+      (match Global.body_of_constant_body cb with
+      | Some t -> collect_long_names t Data.empty
+      | None -> Data.empty)
+    | Globnames.IndRef i ->
+      let _, indbody = Global.lookup_inductive i in
+      let ca = indbody.Declarations.mind_user_lc in
+      Array.fold_right collect_long_names ca Data.empty
+    | Globnames.ConstructRef _ -> Data.empty
+
+  let string_of_gref gref =
+    match gref with
+    | Globnames.VarRef _ -> ""
+    | Globnames.ConstRef cst ->
+      Names.string_of_kn (Names.canonical_con cst)
+    | Globnames.IndRef (kn,_) ->
+      Names.string_of_kn (Names.canonical_mind kn)
+    | Globnames.ConstructRef _ -> ""
+
+  let acc_gref gref () acc =
+    Printf.sprintf "\"%s\"" (string_of_gref gref) :: acc
+
+  let print_body_deps fmt gref delim =
+    match gref with
+    | Globnames.VarRef _  | Globnames.ConstructRef _ -> ()
+    | Globnames.ConstRef _ | Globnames.IndRef _ ->
+      let sdb = (Data.fold acc_gref) (collect_body_deps gref) [] in
+      let s = Printf.sprintf
+	"%s { \"name\": \"%s\", \"isProp\": true, \"isOpaque\": true, \"bodyDepends\": [%s] }"
+	!delim (string_of_gref gref) (String.concat ", " sdb)
+      in
+      pp_with fmt (str s);
+      delim := ",\n"
+
+  let buf = Buffer.create 1000
+
+  let formatter out =
+    let fmt =
+      match out with
+      | Some oc -> Pp_control.with_output_to oc
+      | None -> Buffer.clear buf; Format.formatter_of_buffer buf
+    in
+    Format.pp_set_max_boxes fmt max_int;
+    fmt
+
+  let check_task_depends name l i =
+    match check_task_aux "" name l i with
+    | `ERROR -> false
+    | `ERROR_ADMITTED -> false
+    | `OK_ADMITTED -> true
+    | `OK (po,_) ->
+        let con =
+          Nametab.locate_constant
+            (Libnames.qualid_of_ident po.Proof_global.id) in
+	let gr = Globnames.ConstRef con in
+	let fmt = formatter None in
+	let delim = ref "" in
+	pp_with fmt (str "[\n");
+	print_body_deps fmt gr delim;
+	pp_with fmt (str "\n]\n");
+	Format.pp_print_flush fmt ();
+	if not (Int.equal (Buffer.length buf) 0) then begin
+	  msg_notice (str (Buffer.contents buf));
+	  Buffer.reset buf
+	end;
+	true
 
   let info_tasks l =
     CList.map_i (fun i ({ Stateid.loc; name }, _) ->
@@ -2036,6 +2154,15 @@ let check_task name (tasks,rcbackup) i =
   let vcs = VCS.backup () in
   try
     let rc = Future.purify (Slaves.check_task name tasks) i in
+    pperr_flush ();
+    VCS.restore vcs;
+    rc
+  with e when Errors.noncritical e -> VCS.restore vcs; false
+let check_task_depends name (tasks,rcbackup) i =
+  RemoteCounter.restore rcbackup;
+  let vcs = VCS.backup () in
+  try
+    let rc = Future.purify (Slaves.check_task_depends name tasks) i in
     pperr_flush ();
     VCS.restore vcs;
     rc
