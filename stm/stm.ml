@@ -1335,6 +1335,26 @@ end = struct (* {{{ *)
     | `OK _ | `OK_ADMITTED -> true
     | `ERROR | `ERROR_ADMITTED -> false
 
+  let is_prop gref =
+    try
+      let glob = Glob_term.GRef(Loc.ghost, gref, None) in
+      let env = Global.env() in
+      let sigma = Evd.from_env env in
+      let sigma', c = Pretyping.understand_tcc env sigma glob in
+      let sigma2 = Evarconv.consider_remaining_unif_problems env sigma' in
+      let sigma3, nf = Evarutil.nf_evars_and_universes sigma2 in
+      let pl, uctx = Evd.universe_context sigma3 in
+      let env2 = Environ.push_context uctx (Evarutil.nf_env_evar sigma3 env) in
+      let c2 = nf c in
+      let t = Environ.j_type (Typeops.infer env2 c2) in
+      let t2 = Environ.j_type (Typeops.infer env2 t) in
+      Term.is_Prop t2
+    with _ ->
+      begin
+	msg_warning (str "unable to determine the type of the type for ref");
+	false
+      end
+
   module Data = struct
     type t = unit Globnames.Refmap.t
     let empty = Globnames.Refmap.empty
@@ -1413,8 +1433,8 @@ end = struct (* {{{ *)
     | Globnames.ConstRef _ | Globnames.IndRef _ ->
       let sdb = (Data.fold acc_gref) (collect_body_deps gref) [] in
       let s = Printf.sprintf
-	"%s { \"name\": \"%s\", \"isProp\": true, \"isOpaque\": true, \"bodyDepends\": [%s] }"
-	!delim (string_of_gref gref) (String.concat ", " sdb)
+	"%s { \"name\": \"%s\", \"isProp\": %B, \"isOpaque\": true, \"bodyDepends\": [%s] }"
+	!delim (string_of_gref gref) (is_prop gref) (String.concat ", " sdb)
       in
       pp_with fmt (str s);
       delim := ",\n"
