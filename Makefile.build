@@ -645,6 +645,10 @@ $(COQDOC): $(patsubst %.cma,%$(BESTLIB),$(COQDOCCMO:.cmo=$(BESTOBJ)))
 	$(SHOW)'OCAMLBEST -o $@'
 	$(HIDE)$(call bestocaml,,str unix)
 
+$(COQDIGEST): $(patsubst %.cma,%$(BESTLIB),$(COQDIGESTCMO:.cmo=$(BESTOBJ)))
+	$(SHOW)'OCAMLBEST -o $@'
+	$(HIDE)$(call bestocaml,,str unix)
+
 $(COQWORKMGR): $(addsuffix $(BESTOBJ), stm/coqworkmgrApi tools/coqworkmgr) \
 		$(addsuffix $(BESTLIB), lib/clib)
 	$(SHOW)'OCAMLBEST -o $@'

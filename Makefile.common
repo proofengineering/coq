@@ -93,11 +93,12 @@ GALLINA:=bin/gallina$(EXE)
 COQTEX:=bin/coq-tex$(EXE)
 COQWC:=bin/coqwc$(EXE)
 COQDOC:=bin/coqdoc$(EXE)
+COQDIGEST:=bin/coqdigest(EXE)
 FAKEIDE:=bin/fake_ide$(EXE)
 COQWORKMGR:=bin/coqworkmgr$(EXE)
 
 TOOLS:=$(COQDEP) $(COQMAKEFILE) $(GALLINA) $(COQTEX) $(COQWC) $(COQDOC) $(COQC)\
-	$(COQWORKMGR)
+	$(COQWORKMGR) $(COQDIGEST)
 
 PRIVATEBINARIES:=$(FAKEIDE) $(COQDEPBOOT)
 
@@ -266,6 +267,9 @@ COQDOCCMO:=lib/clib.cma $(addprefix tools/coqdoc/, \
   cdglobals.cmo alpha.cmo index.cmo tokens.cmo output.cmo cpretty.cmo main.cmo )
 
 COQMAKEFILECMO:=lib/clib.cma ide/project_file.cmo tools/coq_makefile.cmo
+
+COQDIGESTCMO:=lib/clib.cma $(addprefix tools/coqdoc/, \
+  cdglobals.cmo alpha.cmo index.cmo tokens.cmo output.cmo ppretty.cmo coqdigest.cmo )
 
 ###########################################################################
 # vo files

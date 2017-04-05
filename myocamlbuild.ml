@@ -173,6 +173,7 @@ let all_binaries =
    "coqdep_boot", coqdepboot, Best;
    "coqdep", "tools/coqdep", Best;
    "coqdoc", "tools/coqdoc/main", Best;
+   "coqdigest", "tools/coqdoc/coqdigest", Best;
    "coqwc", "tools/coqwc", Best;
    "coq_makefile", "tools/coq_makefile", Best;
    "coq-tex", "tools/coq_tex", Best;
