@@ -83,7 +83,7 @@ let parse () =
 
 let gen_one_file l =
   let file = function
-    | Vernac_file (f,m) ->      
+    | Vernac_file (f,m) ->
       Ppretty.coq_file f m
     | _ -> ()
   in
@@ -99,10 +99,13 @@ let produce_output l =
 	open_out_file f;
 	gen_one_file l;
 	close_out_file ()
-    | _ -> ()
+    | _ ->
+      ()
 
 let _ =
   let files = parse () in
     Index.init_coqlib_library ();
     if not !quiet then banner ();
-    if files <> [] then produce_output files
+    if files <> [] then begin
+      produce_output files;
+    end

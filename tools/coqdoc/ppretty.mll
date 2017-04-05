@@ -2,14 +2,31 @@
   open Printf
   open Lexing
 
+  let seen_thm = ref false
+  let in_proof = ref false
+
   (* helper functions *)
 
-  let backtrack lexbuf = lexbuf.lex_curr_pos <- lexbuf.lex_start_pos;
+  let backtrack lexbuf =
+    lexbuf.lex_curr_pos <- lexbuf.lex_start_pos;
     lexbuf.lex_curr_p <- lexbuf.lex_start_p
+
+  (* count the number of spaces at the beginning of a string *)
+  let count_spaces s =
+    let n = String.length s in
+    let rec count c i =
+      if i == n then c,i else match s.[i] with
+	| '\t' -> count (c + (8 - (c mod 8))) (i + 1)
+	| ' ' -> count (c + 1) (i + 1)
+	| _ -> c,i
+    in
+      count 0 0
+
+  let printf s =
+    Printf.fprintf !(Cdglobals.out_channel) "%s " s
 
   let reset () = 
     ()
-
 }
 
 (*s Regular expressions *)
@@ -139,8 +156,11 @@ let commands =
   | ("Hypothesis" | "Hypotheses")
   | "End"
 
-let proof_end_kw =
-  immediate_prf_token | "Qed" | "Defined" | "Save" | "Admitted" | "Abort"
+let prf_not_opaque_end_kw =
+  immediate_prf_token | "Defined" | "Abort"
+
+let prf_opaque_end_kw =
+  "Qed" | "Save" | "Admitted"
 
 let extraction =
   "Extraction"
@@ -187,13 +207,19 @@ rule coq_bol = parse
       { coq_bol lexbuf }
   | space* thm_token
       { let s = lexeme lexbuf in
-	(* output s lexbuf *)
+	printf s;
+	seen_thm := true;
         let eol = body lexbuf in
 	if eol then coq_bol lexbuf else coq lexbuf }
   | space* prf_token
-      { let eol =
-	  begin backtrack lexbuf; body_bol lexbuf end
-	in if eol then coq_bol lexbuf else coq lexbuf }
+      { let eol = begin backtrack lexbuf; body_bol lexbuf end in
+	if eol then coq_bol lexbuf else coq lexbuf }
+  | space* prf_opaque_end_kw
+      { let eol = begin backtrack lexbuf; body_bol lexbuf end in
+	if eol then coq_bol lexbuf else coq lexbuf }
+  | space* prf_not_opaque_end_kw
+      { let eol = begin backtrack lexbuf; body_bol lexbuf end in
+	if eol then coq_bol lexbuf else coq lexbuf }
   | eof
       { () }
   | _
@@ -211,7 +237,22 @@ and body_bol = parse
   | _ { backtrack lexbuf; body lexbuf }
 
 and body = parse
-  | nl { Tokens.flush_sublexer(); Lexing.new_line lexbuf; body_bol lexbuf }
+  | nl { Lexing.new_line lexbuf; printf "\n"; body_bol lexbuf }
+  | eof { false }
+  | '.' space* nl | '.' space* eof
+	{ true }
+  | '.' space+
+        { false }
+  | identifier
+      { if !seen_thm then begin
+	  printf (lexeme lexbuf);
+	  seen_thm := false
+	end;
+	body lexbuf }
+  | space
+      { body lexbuf }
+
+  | _ { body lexbuf }
 
 (* Applying the scanners to files *)
 
