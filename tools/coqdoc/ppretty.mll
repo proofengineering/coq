@@ -3,6 +3,7 @@
   open Lexing
 
   let modname = ref ""
+  let namespace = ref ""
   let seen_thm = ref false
   let curr_thm = ref None
   let in_proof = ref None
@@ -250,8 +251,8 @@ rule coq_bol = parse
 	let thm = match !curr_thm with Some t -> t | None -> "" in
 	let prf = String.trim (Buffer.contents buf) in
 	let row =
-	  Printf.sprintf "%s { \"name\": \"%s.%s\", \"isAdmitted\": %B, \"body\": \"%s\", \"bodyDigest\": \"%s\" }"
-	    !delim !modname thm is_admitted prf (digest prf)
+	  Printf.sprintf "%s { \"name\": \"%s%s.%s\", \"isAdmitted\": %B, \"body\": \"%s\", \"bodyDigest\": \"%s\" }"
+	    !delim !namespace !modname thm is_admitted prf (digest prf)
 	in
 	Printf.printf "%s" row;
 	let eol = skip_to_dot lexbuf in
@@ -290,8 +291,8 @@ and coq = parse
 	let thm = match !curr_thm with Some t -> t | None -> "" in
 	let prf = String.trim (Buffer.contents buf) in
 	let row =
-	  Printf.sprintf "%s { \"name\": \"%s.%s\", \"isAdmitted\": %B, \"body\": \"%s\", \"bodyDigest\": \"%s\" }"
-	    !delim !modname thm is_admitted prf (digest prf)
+	  Printf.sprintf "%s { \"name\": \"%s%s.%s\", \"isAdmitted\": %B, \"body\": \"%s\", \"bodyDigest\": \"%s\" }"
+	    !delim !namespace !modname thm is_admitted prf (digest prf)
 	in
 	Printf.printf "%s" row;
 	let eol = skip_to_dot lexbuf in
@@ -357,11 +358,16 @@ and skip_to_dot = parse
 
 {
 
-  let coq_file f m =
+  let coq_file f m ns =
     reset ();
     let bfname = Filename.chop_suffix f ".v" in
     let dirname, fname = normalize_filename bfname in
     modname := fname;
+    begin match ns with
+    | None -> ()
+    | Some n ->
+      namespace := Printf.sprintf "%s." n
+    end;
     let c = open_in f in
     let lb = from_channel c in
     Printf.printf "%s" "[\n";

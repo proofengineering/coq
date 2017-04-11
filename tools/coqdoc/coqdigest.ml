@@ -19,6 +19,8 @@ let check_if_file_exists f =
 (* [paths] maps a physical path to a name *)
 let paths = ref []
 
+let namespace = ref None
+
 let add_path dir name =
   let p = normalize_path dir in
   paths := (p,name) :: !paths
@@ -75,6 +77,12 @@ let parse () =
     | ("-q" | "-quiet" | "--quiet") :: rem ->
 	quiet := true; parse_rec rem
 
+    | ("-n" | "-namespace" | "--namespace") :: n :: rem ->
+        namespace := Some n; parse_rec rem
+
+    | ("-n" | "-namespace" | "--namespace") :: [] ->
+        usage ()
+
     | f :: rem ->
 	add_file (what_file f); parse_rec rem
   in
@@ -84,7 +92,7 @@ let parse () =
 let gen_one_file l =
   let file = function
     | Vernac_file (f,m) ->
-      Ppretty.coq_file f m
+      Ppretty.coq_file f m !namespace
     | _ -> ()
   in
   List.iter file l
