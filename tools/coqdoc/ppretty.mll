@@ -2,6 +2,7 @@
   open Printf
   open Lexing
 
+  let filename = ref ""
   let seen_thm = ref false
   let curr_thm = ref None
   let in_proof = ref None
@@ -29,6 +30,8 @@
 
   let reset () = 
     ()
+
+  let digest s = Digest.to_hex (Digest.string s)
 
   let buf = Buffer.create 1000
 }
@@ -248,9 +251,10 @@ and coq = parse
 	Buffer.add_char buf '.';
 	let is_admitted = s = "Admitted" in
 	let thm = match !curr_thm with Some t -> t | None -> "" in
+	let prf = Buffer.contents buf in
 	let row =
-	  Printf.sprintf "%s { \"name\": \"%s\", \"isAdmitted\": %B, \"bodyDigest\": \"%s\" }"
-	    !delim thm is_admitted (Buffer.contents buf)
+	  Printf.sprintf "%s { \"name\": \"%s.%s\", \"isAdmitted\": %B, \"body\": \"%s\", \"bodyDigest\": \"%s\" }"
+	    !delim !filename thm is_admitted prf (digest prf)
 	in
 	Printf.printf "%s" row;
 	let eol = skip_to_dot lexbuf in
@@ -311,6 +315,7 @@ and skip_to_dot = parse
 
   let coq_file f m =
     reset ();
+    filename := Filename.chop_suffix f ".v";
     let c = open_in f in
     let lb = from_channel c in
     Printf.printf "%s" "[\n";
