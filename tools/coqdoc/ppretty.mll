@@ -8,23 +8,13 @@
   let curr_thm = ref None
   let in_proof = ref None
   let delim = ref ""
+  let show_body = ref false
 
   (* helper functions *)
 
   let backtrack lexbuf =
     lexbuf.lex_curr_pos <- lexbuf.lex_start_pos;
     lexbuf.lex_curr_p <- lexbuf.lex_start_p
-
-  (* count the number of spaces at the beginning of a string *)
-  let count_spaces s =
-    let n = String.length s in
-    let rec count c i =
-      if i == n then c,i else match s.[i] with
-	| '\t' -> count (c + (8 - (c mod 8))) (i + 1)
-	| ' ' -> count (c + 1) (i + 1)
-	| _ -> c,i
-    in
-      count 0 0
 
   let printf s =
     Printf.fprintf !(Cdglobals.out_channel) "%s" s
@@ -33,23 +23,6 @@
     ()
 
   let digest s = Digest.to_hex (Digest.string s)
-
-  let normalize_path p =
-  (* We use the Unix subsystem to normalize a physical path (relative
-     or absolute) and get rid of symbolic links, relative links (like
-     ./ or ../ in the middle of the path; it's tricky but it
-     works... *)
-  (* Rq: Sys.getcwd () returns paths without '/' at the end *)
-    let orig = Sys.getcwd () in
-    Sys.chdir p;
-    let res = Sys.getcwd () in
-    Sys.chdir orig;
-    res
-
-  let normalize_filename f =
-    let basename = Filename.basename f in
-    let dirname = Filename.dirname f in
-    normalize_path dirname, basename
 
   let buf = Buffer.create 1000
 }
@@ -249,8 +222,12 @@ rule coq_bol = parse
 	let thm = match !curr_thm with Some t -> t | None -> "" in
 	let prf = String.trim (Buffer.contents buf) in
 	let row =
-	  Printf.sprintf "%s { \"name\": \"%s%s.%s\", \"isAdmitted\": %B, \"body\": \"%s\", \"bodyDigest\": \"%s\" }"
-	    !delim !namespace !modname thm is_admitted prf (digest prf)
+	  if !show_body then
+	    Printf.sprintf "%s { \"name\": \"%s%s.%s\", \"isAdmitted\": %B, \"body\": \"%s\", \"bodyDigest\": \"%s\" }"
+	      !delim !namespace !modname thm is_admitted prf (digest prf)
+	  else
+	    Printf.sprintf "%s { \"name\": \"%s%s.%s\", \"isAdmitted\": %B, \"bodyDigest\": \"%s\" }"
+	      !delim !namespace !modname thm is_admitted (digest prf)
 	in
 	printf row;
 	let eol = skip_to_dot lexbuf in
@@ -289,8 +266,12 @@ and coq = parse
 	let thm = match !curr_thm with Some t -> t | None -> "" in
 	let prf = String.trim (Buffer.contents buf) in
 	let row =
-	  Printf.sprintf "%s { \"name\": \"%s%s.%s\", \"isAdmitted\": %B, \"body\": \"%s\", \"bodyDigest\": \"%s\" }"
-	    !delim !namespace !modname thm is_admitted prf (digest prf)
+	  if !show_body then
+	    Printf.sprintf "%s { \"name\": \"%s%s.%s\", \"isAdmitted\": %B, \"body\": \"%s\", \"bodyDigest\": \"%s\" }"
+	      !delim !namespace !modname thm is_admitted prf (digest prf)
+	  else
+	    Printf.sprintf "%s { \"name\": \"%s%s.%s\", \"isAdmitted\": %B, \"bodyDigest\": \"%s\" }"
+	      !delim !namespace !modname thm is_admitted (digest prf)
 	in
 	printf row;
 	let eol = skip_to_dot lexbuf in
@@ -356,16 +337,15 @@ and skip_to_dot = parse
 
 {
 
-  let coq_file f m ns =
+  let coq_file f m ns b =
     reset ();
-    let bfname = Filename.chop_suffix f ".v" in
-    let dirname, fname = normalize_filename bfname in
-    modname := fname;
+    modname := m;
     begin match ns with
     | None -> ()
     | Some n ->
       namespace := Printf.sprintf "%s." n
     end;
+    show_body := b;
     let c = open_in f in
     let lb = from_channel c in
     printf "[\n";

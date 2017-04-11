@@ -3,7 +3,13 @@ open Printf
 
 let usage () =
   prerr_endline "";
-  prerr_endline "Usage: coqdigest <options and files>"
+  prerr_endline "Usage: coqdigest <options and files>";
+  prerr_endline "  -o <file>            write output in file <file>";
+  prerr_endline "  --stdout             write output to stdout";
+  prerr_endline "  -n <string>          set namespace <string>";
+  prerr_endline "  -b                   show proof bodies (for debugging)";
+  prerr_endline "";
+  exit 1
 
 let banner () =
   eprintf "This is coqdigest version %s, compiled on %s\n"
@@ -20,6 +26,7 @@ let check_if_file_exists f =
 let paths = ref []
 
 let namespace = ref None
+let show_body = ref false
 
 let add_path dir name =
   let p = normalize_path dir in
@@ -48,7 +55,7 @@ let coq_module filename =
 
 let what_file f =
   check_if_file_exists f;
-  if Filename.check_suffix f ".v" || Filename.check_suffix f ".g" then
+  if Filename.check_suffix f ".v" then
     Vernac_file (f, coq_module f)
   else
      (eprintf "\ncoqdigest: don't know what to do with %s\n" f; exit 1)
@@ -74,8 +81,8 @@ let parse () =
     | ("-h" | "-help" | "-?" | "--help") :: rem ->
 	banner (); usage ()
 
-    | ("-q" | "-quiet" | "--quiet") :: rem ->
-	quiet := true; parse_rec rem
+    | ("-b" | "-body" | "--body") :: rem ->
+	show_body := true; parse_rec rem
 
     | ("-n" | "-namespace" | "--namespace") :: n :: rem ->
         namespace := Some n; parse_rec rem
@@ -92,7 +99,7 @@ let parse () =
 let gen_one_file l =
   let file = function
     | Vernac_file (f,m) ->
-      Ppretty.coq_file f m !namespace
+      Ppretty.coq_file f m !namespace !show_body
     | _ -> ()
   in
   List.iter file l
