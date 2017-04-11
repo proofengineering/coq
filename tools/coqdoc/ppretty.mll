@@ -56,6 +56,7 @@ let identifier =
 
 let printing_token = [^ ' ' '\t']*
 
+(* FIXME: opaque constants can start with Definition *)
 let thm_token =
   "Theorem"
   | "Lemma"
@@ -240,6 +241,7 @@ rule coq_bol = parse
       { let eol = skip_to_dot lexbuf in
 	in_proof := None;
 	curr_thm := None;
+	Buffer.reset buf;
 	if eol then coq_bol lexbuf else coq lexbuf }
   | eof
       { () }
@@ -284,6 +286,7 @@ and coq = parse
       { let eol = skip_to_dot lexbuf in
 	in_proof := None;
 	curr_thm := None;
+	Buffer.reset buf;
 	if eol then coq_bol lexbuf else coq lexbuf }
   | _ {	let eol = begin backtrack lexbuf; body lexbuf end in
 	if eol then coq_bol lexbuf else coq lexbuf }
