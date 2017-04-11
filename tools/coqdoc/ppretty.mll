@@ -233,11 +233,9 @@ rule coq_bol = parse
   | space* nl+
       { coq_bol lexbuf }
   | space* thm_token
-      { (*Printf.printf "thm_token\n";*)
-	seen_thm := true;
+      { seen_thm := true;
 	Buffer.clear buf;
         let eol = body lexbuf in
-	(*Printf.printf "%B\n" eol;*)
 	in_proof := Some eol;
 	if eol then coq_bol lexbuf else coq lexbuf }
   | space* prf_token
@@ -254,7 +252,7 @@ rule coq_bol = parse
 	  Printf.sprintf "%s { \"name\": \"%s%s.%s\", \"isAdmitted\": %B, \"body\": \"%s\", \"bodyDigest\": \"%s\" }"
 	    !delim !namespace !modname thm is_admitted prf (digest prf)
 	in
-	Printf.printf "%s" row;
+	printf row;
 	let eol = skip_to_dot lexbuf in
 	in_proof := None;
 	curr_thm := None;
@@ -294,7 +292,7 @@ and coq = parse
 	  Printf.sprintf "%s { \"name\": \"%s%s.%s\", \"isAdmitted\": %B, \"body\": \"%s\", \"bodyDigest\": \"%s\" }"
 	    !delim !namespace !modname thm is_admitted prf (digest prf)
 	in
-	Printf.printf "%s" row;
+	printf row;
 	let eol = skip_to_dot lexbuf in
 	in_proof := None;
 	curr_thm := None;
@@ -370,9 +368,9 @@ and skip_to_dot = parse
     end;
     let c = open_in f in
     let lb = from_channel c in
-    Printf.printf "%s" "[\n";
+    printf "[\n";
     coq_bol lb;
-    Printf.printf "%s" "\n]\n";
+    printf "\n]\n";
     close_in c
 
 }
