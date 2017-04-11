@@ -2,7 +2,7 @@
   open Printf
   open Lexing
 
-  let filename = ref ""
+  let modname = ref ""
   let seen_thm = ref false
   let curr_thm = ref None
   let in_proof = ref None
@@ -32,6 +32,23 @@
     ()
 
   let digest s = Digest.to_hex (Digest.string s)
+
+  let normalize_path p =
+  (* We use the Unix subsystem to normalize a physical path (relative
+     or absolute) and get rid of symbolic links, relative links (like
+     ./ or ../ in the middle of the path; it's tricky but it
+     works... *)
+  (* Rq: Sys.getcwd () returns paths without '/' at the end *)
+    let orig = Sys.getcwd () in
+    Sys.chdir p;
+    let res = Sys.getcwd () in
+    Sys.chdir orig;
+    res
+
+  let normalize_filename f =
+    let basename = Filename.basename f in
+    let dirname = Filename.dirname f in
+    normalize_path dirname, basename
 
   let buf = Buffer.create 1000
 }
@@ -77,7 +94,8 @@ let thm_token =
 
 let prf_token =
   "Next" space+ "Obligation"
-  | "Proof" (space* "." | space+ "with" | space+ "using")
+  | "Proof"
+(* (space+ "with" | space+ "using")?*)
 
 let immediate_prf_token =
   (* Approximation of a proof term, if not in the prf_token case *)
@@ -164,7 +182,8 @@ let commands =
   | "End"
 
 let prf_not_opaque_end_kw =
-  immediate_prf_token | "Defined" | "Abort"
+  "Defined" | "Abort"
+  (*immediate_prf_token | "Defined" | "Abort"*)
 
 let prf_opaque_end_kw =
   "Qed" | "Save" | "Admitted"
@@ -213,26 +232,46 @@ rule coq_bol = parse
   | space* nl+
       { coq_bol lexbuf }
   | space* thm_token
-      { seen_thm := true;
+      { (*Printf.printf "thm_token\n";*)
+	seen_thm := true;
 	Buffer.clear buf;
         let eol = body lexbuf in
+	(*Printf.printf "%B\n" eol;*)
 	in_proof := Some eol;
 	if eol then coq_bol lexbuf else coq lexbuf }
   | space* prf_token
       { in_proof := Some true;
-	let eol = begin backtrack lexbuf; body_bol lexbuf end in
+	let eol = skip_to_dot lexbuf in
 	if eol then coq_bol lexbuf else coq lexbuf }
   | space* prf_opaque_end_kw
       {
-	let eol = begin backtrack lexbuf; body_bol lexbuf end in
+	let s = lexeme lexbuf in
+	let is_admitted = s = "Admitted" in
+	let thm = match !curr_thm with Some t -> t | None -> "" in
+	let prf = String.trim (Buffer.contents buf) in
+	let row =
+	  Printf.sprintf "%s { \"name\": \"%s.%s\", \"isAdmitted\": %B, \"body\": \"%s\", \"bodyDigest\": \"%s\" }"
+	    !delim !modname thm is_admitted prf (digest prf)
+	in
+	Printf.printf "%s" row;
+	let eol = skip_to_dot lexbuf in
+	in_proof := None;
+	curr_thm := None;
+	delim := ",\n";
+	Buffer.reset buf;
 	if eol then coq_bol lexbuf else coq lexbuf }
   | space* prf_not_opaque_end_kw
-      { let eol = begin backtrack lexbuf; body_bol lexbuf end in
+      { let eol = skip_to_dot lexbuf in
+	in_proof := None;
+	curr_thm := None;
 	if eol then coq_bol lexbuf else coq lexbuf }
   | eof
       { () }
   | _
-      { () }
+      {
+	let eol = begin backtrack lexbuf; body_bol lexbuf end in
+	if eol then coq_bol lexbuf else coq lexbuf
+      }
 
 (* Scanning Coq elsewhere *)
 
@@ -243,18 +282,16 @@ and coq = parse
       { () }
   | prf_token
       { in_proof := Some true;
-	let eol = begin backtrack lexbuf; body lexbuf end in
+	let eol = skip_to_dot lexbuf in
 	if eol then coq_bol lexbuf else coq lexbuf }
   | prf_opaque_end_kw
       { let s = lexeme lexbuf in
-	Buffer.add_string buf s;
-	Buffer.add_char buf '.';
 	let is_admitted = s = "Admitted" in
 	let thm = match !curr_thm with Some t -> t | None -> "" in
-	let prf = Buffer.contents buf in
+	let prf = String.trim (Buffer.contents buf) in
 	let row =
 	  Printf.sprintf "%s { \"name\": \"%s.%s\", \"isAdmitted\": %B, \"body\": \"%s\", \"bodyDigest\": \"%s\" }"
-	    !delim !filename thm is_admitted prf (digest prf)
+	    !delim !modname thm is_admitted prf (digest prf)
 	in
 	Printf.printf "%s" row;
 	let eol = skip_to_dot lexbuf in
@@ -283,26 +320,33 @@ and body = parse
 	body_bol lexbuf }
   | eof
       { false }
-  | '.' space* nl | '.' space* eof
-      { if !in_proof = Some true then Buffer.add_string buf ". " ;
+  | '.' space* nl
+      { if !in_proof = Some true then Buffer.add_string buf ".\n" ;
+	true }
+  | '.' space* eof
+      { if !in_proof = Some true then Buffer.add_char buf '.';
 	true }
   | '.' space+
       { if !in_proof = Some true then Buffer.add_string buf ". ";
 	false }
   | identifier
-      { if !seen_thm then begin
-	  curr_thm := Some (lexeme lexbuf);
-	  seen_thm := false
-        end;
-	if !in_proof = Some true then begin
-	  Buffer.add_string buf (lexeme lexbuf)
-	end;
-	body lexbuf }
+      { let s = lexeme lexbuf in
+	if !seen_thm then begin
+	  curr_thm := Some s;
+	  seen_thm := false;
+	  skip_to_dot lexbuf
+	end
+        else begin
+	  if !in_proof = Some true then Buffer.add_string buf s;
+          body lexbuf
+	end
+      }
   | space
-      { if !in_proof = Some true then Buffer.add_string buf " ";
+      { if !in_proof = Some true then Buffer.add_char buf (lexeme_char lexbuf 0);
 	body lexbuf }
 
-  | _ { body lexbuf }
+  | _ { if !in_proof = Some true then Buffer.add_char buf (lexeme_char lexbuf 0);
+	body lexbuf }
 
 and skip_to_dot = parse
   | '.' space* nl { true }
@@ -315,7 +359,9 @@ and skip_to_dot = parse
 
   let coq_file f m =
     reset ();
-    filename := Filename.chop_suffix f ".v";
+    let bfname = Filename.chop_suffix f ".v" in
+    let dirname, fname = normalize_filename bfname in
+    modname := fname;
     let c = open_in f in
     let lb = from_channel c in
     Printf.printf "%s" "[\n";
