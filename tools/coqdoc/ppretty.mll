@@ -5,6 +5,7 @@
   let seen_thm = ref false
   let curr_thm = ref None
   let in_proof = ref None
+  let delim = ref ""
 
   (* helper functions *)
 
@@ -245,14 +246,18 @@ and coq = parse
       { let s = lexeme lexbuf in
 	Buffer.add_string buf s;
 	Buffer.add_char buf '.';
-	(* check if s = "Qed" or "Save" or "Admitted" *)
+	let is_admitted = s = "Admitted" in
+	let thm = match !curr_thm with Some t -> t | None -> "" in
+	let row =
+	  Printf.sprintf "%s { \"name\": \"%s\", \"isAdmitted\": %B, \"bodyDigest\": \"%s\" }"
+	    !delim thm is_admitted (Buffer.contents buf)
+	in
+	Printf.printf "%s" row;
 	let eol = skip_to_dot lexbuf in
 	in_proof := None;
 	curr_thm := None;
-	if not (Int.equal (Buffer.length buf) 0) then begin
-	  Printf.printf "%s" (Buffer.contents buf);
-	  Buffer.reset buf
-	end;
+	delim := ",\n";
+	Buffer.reset buf;
 	if eol then coq_bol lexbuf else coq lexbuf }
   | prf_not_opaque_end_kw
       { let eol = skip_to_dot lexbuf in
@@ -283,8 +288,6 @@ and body = parse
   | identifier
       { if !seen_thm then begin
 	  curr_thm := Some (lexeme lexbuf);
-	  Buffer.add_string buf (lexeme lexbuf);
-	  Buffer.add_string buf ": ";
 	  seen_thm := false
         end;
 	if !in_proof = Some true then begin
@@ -310,7 +313,9 @@ and skip_to_dot = parse
     reset ();
     let c = open_in f in
     let lb = from_channel c in
+    Printf.printf "%s" "[\n";
     coq_bol lb;
+    Printf.printf "%s" "\n]\n";
     close_in c
 
 }
