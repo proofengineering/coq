@@ -3,7 +3,8 @@
   open Lexing
 
   let seen_thm = ref false
-  let in_proof = ref false
+  let curr_thm = ref None
+  let in_proof = ref None
 
   (* helper functions *)
 
@@ -23,10 +24,12 @@
       count 0 0
 
   let printf s =
-    Printf.fprintf !(Cdglobals.out_channel) "%s " s
+    Printf.fprintf !(Cdglobals.out_channel) "%s" s
 
   let reset () = 
     ()
+
+  let buf = Buffer.create 1000
 }
 
 (*s Regular expressions *)
@@ -206,16 +209,18 @@ rule coq_bol = parse
   | space* nl+
       { coq_bol lexbuf }
   | space* thm_token
-      { let s = lexeme lexbuf in
-	printf s;
-	seen_thm := true;
+      { seen_thm := true;
+	Buffer.clear buf;
         let eol = body lexbuf in
+	in_proof := Some eol;
 	if eol then coq_bol lexbuf else coq lexbuf }
   | space* prf_token
-      { let eol = begin backtrack lexbuf; body_bol lexbuf end in
+      { in_proof := Some true;
+	let eol = begin backtrack lexbuf; body_bol lexbuf end in
 	if eol then coq_bol lexbuf else coq lexbuf }
   | space* prf_opaque_end_kw
-      { let eol = begin backtrack lexbuf; body_bol lexbuf end in
+      {
+	let eol = begin backtrack lexbuf; body_bol lexbuf end in
 	if eol then coq_bol lexbuf else coq lexbuf }
   | space* prf_not_opaque_end_kw
       { let eol = begin backtrack lexbuf; body_bol lexbuf end in
@@ -230,6 +235,32 @@ rule coq_bol = parse
 and coq = parse
   | nl
       { coq_bol lexbuf }
+  | eof
+      { () }
+  | prf_token
+      { in_proof := Some true;
+	let eol = begin backtrack lexbuf; body lexbuf end in
+	if eol then coq_bol lexbuf else coq lexbuf }
+  | prf_opaque_end_kw
+      { let s = lexeme lexbuf in
+	Buffer.add_string buf s;
+	Buffer.add_char buf '.';
+	(* check if s = "Qed" or "Save" or "Admitted" *)
+	let eol = skip_to_dot lexbuf in
+	in_proof := None;
+	curr_thm := None;
+	if not (Int.equal (Buffer.length buf) 0) then begin
+	  Printf.printf "%s" (Buffer.contents buf);
+	  Buffer.reset buf
+	end;
+	if eol then coq_bol lexbuf else coq lexbuf }
+  | prf_not_opaque_end_kw
+      { let eol = skip_to_dot lexbuf in
+	in_proof := None;
+	curr_thm := None;
+	if eol then coq_bol lexbuf else coq lexbuf }
+  | _ {	let eol = begin backtrack lexbuf; body lexbuf end in
+	if eol then coq_bol lexbuf else coq lexbuf }
 
 and body_bol = parse
   | space+
@@ -237,22 +268,39 @@ and body_bol = parse
   | _ { backtrack lexbuf; body lexbuf }
 
 and body = parse
-  | nl { Lexing.new_line lexbuf; printf "\n"; body_bol lexbuf }
-  | eof { false }
+  | nl
+      { Lexing.new_line lexbuf;
+	if !in_proof = Some true then Buffer.add_string buf "\n";
+	body_bol lexbuf }
+  | eof
+      { false }
   | '.' space* nl | '.' space* eof
-	{ true }
+      { if !in_proof = Some true then Buffer.add_string buf ". " ;
+	true }
   | '.' space+
-        { false }
+      { if !in_proof = Some true then Buffer.add_string buf ". ";
+	false }
   | identifier
       { if !seen_thm then begin
-	  printf (lexeme lexbuf);
+	  curr_thm := Some (lexeme lexbuf);
+	  Buffer.add_string buf (lexeme lexbuf);
+	  Buffer.add_string buf ": ";
 	  seen_thm := false
+        end;
+	if !in_proof = Some true then begin
+	  Buffer.add_string buf (lexeme lexbuf)
 	end;
 	body lexbuf }
   | space
-      { body lexbuf }
+      { if !in_proof = Some true then Buffer.add_string buf " ";
+	body lexbuf }
 
   | _ { body lexbuf }
+
+and skip_to_dot = parse
+  | '.' space* nl { true }
+  | eof | '.' space+ { false }
+  | _ { skip_to_dot lexbuf }
 
 (* Applying the scanners to files *)
 
