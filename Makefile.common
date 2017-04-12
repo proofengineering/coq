@@ -93,7 +93,7 @@ GALLINA:=bin/gallina$(EXE)
 COQTEX:=bin/coq-tex$(EXE)
 COQWC:=bin/coqwc$(EXE)
 COQDOC:=bin/coqdoc$(EXE)
-COQDIGEST:=bin/coqdigest(EXE)
+COQDIGEST:=bin/coqdigest$(EXE)
 FAKEIDE:=bin/fake_ide$(EXE)
 COQWORKMGR:=bin/coqworkmgr$(EXE)
 
