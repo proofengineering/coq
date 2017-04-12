@@ -244,6 +244,11 @@ rule coq_bol = parse
 	curr_thm := None;
 	Buffer.reset buf;
 	if eol then coq_bol lexbuf else coq lexbuf }
+  | space* "(*"
+      {
+	let eol = skipped_comment lexbuf in
+	if eol then coq_bol lexbuf else coq lexbuf
+      }
   | eof
       { () }
   | _
@@ -257,6 +262,10 @@ rule coq_bol = parse
 and coq = parse
   | nl
       { coq_bol lexbuf }
+  | "(*"
+      {
+	let eol = skipped_comment lexbuf in
+        if eol then coq_bol lexbuf else coq lexbuf }
   | eof
       { () }
   | prf_token
@@ -336,6 +345,14 @@ and skip_to_dot = parse
   | '.' space* nl { true }
   | eof | '.' space+ { false }
   | _ { skip_to_dot lexbuf }
+
+and skipped_comment = parse
+  | "*)" space* nl
+      { true }
+  | "*)"
+      { false }
+  | eof { false }
+  | _ { skipped_comment lexbuf }
 
 (* Applying the scanners to files *)
 
