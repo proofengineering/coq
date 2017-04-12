@@ -56,7 +56,6 @@ let identifier =
 
 let printing_token = [^ ' ' '\t']*
 
-(* FIXME: opaque constants can start with Definition *)
 let thm_token =
   "Theorem"
   | "Lemma"
@@ -66,6 +65,7 @@ let thm_token =
   | "Proposition"
   | "Property"
   | "Goal"
+  | "Definition"
 
 let prf_token =
   "Next" space+ "Obligation"
