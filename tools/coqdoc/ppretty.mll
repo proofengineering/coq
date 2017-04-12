@@ -9,6 +9,7 @@
   let in_proof = ref None
   let delim = ref ""
   let show_body = ref false
+  let comment_level = ref 0
 
   (* helper functions *)
 
@@ -19,8 +20,8 @@
   let printf s =
     Printf.fprintf !(Cdglobals.out_channel) "%s" s
 
-  let reset () = 
-    ()
+  let reset () =
+    comment_level := 0
 
   let digest s = Digest.to_hex (Digest.string s)
 
@@ -245,7 +246,7 @@ rule coq_bol = parse
 	Buffer.reset buf;
 	if eol then coq_bol lexbuf else coq lexbuf }
   | space* "(*"
-      {
+      { comment_level := 1;
 	let eol = skipped_comment lexbuf in
 	if eol then coq_bol lexbuf else coq lexbuf
       }
@@ -263,7 +264,7 @@ and coq = parse
   | nl
       { coq_bol lexbuf }
   | "(*"
-      {
+      { comment_level := 1;
 	let eol = skipped_comment lexbuf in
         if eol then coq_bol lexbuf else coq lexbuf }
   | eof
@@ -347,10 +348,15 @@ and skip_to_dot = parse
   | _ { skip_to_dot lexbuf }
 
 and skipped_comment = parse
+  | "(*"
+      { incr comment_level;
+	skipped_comment lexbuf }
   | "*)" space* nl
-      { true }
+      { decr comment_level;
+        if !comment_level > 0 then skipped_comment lexbuf else true }
   | "*)"
-      { false }
+      { decr comment_level;
+        if !comment_level > 0 then skipped_comment lexbuf else false }
   | eof { false }
   | _ { skipped_comment lexbuf }
 
