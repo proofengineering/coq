@@ -66,6 +66,7 @@ let thm_token =
   | "Property"
   | "Goal"
   | "Definition"
+  | "Instance"
 
 let prf_token =
   "Next" space+ "Obligation"
