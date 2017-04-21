@@ -61,10 +61,6 @@ let what_file f =
   else
      (eprintf "\ncoqdigest: don't know what to do with %s\n" f; exit 1)
 
-let index_module = function
-  | Vernac_file (f,m) -> Index.add_module m
-  | _ -> ()
-
 let parse () =
   let files = ref [] in
   let add_file f = files := f :: !files in
@@ -120,7 +116,6 @@ let gen_mult_files l =
   List.iter file l
 
 let produce_output l =
-  List.iter index_module l;
   match !out_to with
     | StdOut ->
 	Cdglobals.out_channel := stdout;
@@ -134,8 +129,5 @@ let produce_output l =
 
 let _ =
   let files = parse () in
-    Index.init_coqlib_library ();
-    if not !quiet then banner ();
-    if files <> [] then begin
-      produce_output files;
-    end
+  if not !quiet then banner ();
+  if files <> [] then produce_output files
