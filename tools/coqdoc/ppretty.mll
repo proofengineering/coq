@@ -21,7 +21,11 @@
     Printf.fprintf !(Cdglobals.out_channel) "%s" s
 
   let reset () =
-    comment_level := 0
+    comment_level := 0;
+    delim := "";
+    seen_thm := false;
+    curr_thm := None;
+    in_proof := None
 
   let digest s = Digest.to_hex (Digest.string s)
 

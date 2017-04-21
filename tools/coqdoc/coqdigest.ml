@@ -5,6 +5,7 @@ let usage () =
   prerr_endline "";
   prerr_endline "Usage: coqdigest <options and files>";
   prerr_endline "  -o <file>            write output in file <file>";
+  prerr_endline "  -d <dir>             output files into directory <dir>";
   prerr_endline "  --stdout             write output to stdout";
   prerr_endline "  -n <string>          set namespace <string>";
   prerr_endline "  -b                   show proof bodies (for debugging)";
@@ -61,8 +62,7 @@ let what_file f =
      (eprintf "\ncoqdigest: don't know what to do with %s\n" f; exit 1)
 
 let index_module = function
-  | Vernac_file (f,m) ->
-      Index.add_module m
+  | Vernac_file (f,m) -> Index.add_module m
   | _ -> ()
 
 let parse () =
@@ -76,6 +76,10 @@ let parse () =
     | ("-o" | "--output") :: f :: rem ->
 	out_to := File (Filename.basename f); output_dir := Filename.dirname f; parse_rec rem
     | ("-o" | "--output") :: [] ->
+	usage ()
+    | ("-d" | "--directory") :: dir :: rem ->
+	output_dir := dir; parse_rec rem
+    | ("-d" | "--directory") :: [] ->
 	usage ()
 
     | ("-h" | "-help" | "-?" | "--help") :: rem ->
@@ -99,7 +103,18 @@ let parse () =
 let gen_one_file l =
   let file = function
     | Vernac_file (f,m) ->
-      Ppretty.coq_file f m !namespace !show_body
+        Ppretty.coq_file f m !namespace !show_body
+    | _ -> ()
+  in
+  List.iter file l
+
+let gen_mult_files l =
+  let file = function
+    | Vernac_file (f,m) ->
+        let hf = Printf.sprintf "%s.json" m in
+        open_out_file hf;
+        Ppretty.coq_file f m !namespace !show_body;
+        close_out_file ()
     | _ -> ()
   in
   List.iter file l
@@ -114,8 +129,8 @@ let produce_output l =
 	open_out_file f;
 	gen_one_file l;
 	close_out_file ()
-    | _ ->
-      ()
+    | MultFiles ->
+        gen_mult_files l
 
 let _ =
   let files = parse () in
