@@ -139,7 +139,7 @@ let parse_args () =
     | "-R" :: s :: "-as" :: [] -> usage ()
     | "-R" :: s :: t :: rem -> parse (cfiles,t::s::"-R"::args) rem
     | "-Q" :: s :: t :: rem -> parse (cfiles,t::s::"-Q"::args) rem
-    | ("-schedule-vio-checking"
+    | ("-schedule-vio-checking" | "-check-vio-depends-tasks"
       |"-check-vio-tasks" | "-schedule-vio2vo" as o) :: s :: rem ->
         let nodash, rem =
           CList.split_when (fun x -> String.length x > 1 && x.[0] = '-') rem in
