@@ -4,11 +4,18 @@
 
   let modname = ref ""
   let namespace = ref ""
+
   let seen_thm = ref false
+  let seen_mod = ref false
+
   let curr_thm = ref None
+  let curr_mod = ref None
   let in_proof = ref None
+
   let delim = ref ""
+
   let show_body = ref false
+
   let comment_level = ref 0
 
   (* helper functions *)
@@ -24,7 +31,9 @@
     comment_level := 0;
     delim := "";
     seen_thm := false;
+    seen_mod := false;
     curr_thm := None;
+    curr_mod := None;
     in_proof := None
 
   let digest s = Digest.to_hex (Digest.string s)
@@ -72,6 +81,9 @@ let thm_token =
   | "Goal"
   | "Definition"
   | "Instance"
+
+let mod_token =
+  "Module"
 
 let prf_token =
   "Next" space+ "Obligation"
@@ -169,6 +181,9 @@ let prf_not_opaque_end_kw =
 let prf_opaque_end_kw =
   "Qed" | "Save" | "Admitted"
 
+let mod_end_kw =
+  "End"
+
 let extraction =
   "Extraction"
   | "Recursive" space+ "Extraction"
@@ -212,6 +227,10 @@ let gallina_kw_to_hide =
 rule coq_bol = parse
   | space* nl+
       { coq_bol lexbuf }
+  | space* mod_token
+      { seen_mod := true;
+	let eol = body lexbuf in
+	if eol then coq_bol lexbuf else coq lexbuf }
   | space* thm_token
       { seen_thm := true;
 	Buffer.clear buf;
@@ -227,14 +246,15 @@ rule coq_bol = parse
 	let s = lexeme lexbuf in
 	let is_admitted = s = "Admitted" in
 	let thm = match !curr_thm with Some t -> t | None -> "" in
+	let mo = match !curr_mod with Some m -> (Printf.sprintf "%s." m) | None -> "" in
 	let prf = String.trim (Buffer.contents buf) in
 	let row =
 	  if !show_body then
-	    Printf.sprintf "%s { \"name\": \"%s%s.%s\", \"isAdmitted\": %B, \"body\": \"%s\", \"bodyDigest\": \"%s\" }"
-	      !delim !namespace !modname thm is_admitted prf (digest prf)
+	    Printf.sprintf "%s { \"name\": \"%s%s.%s%s\", \"isAdmitted\": %B, \"body\": \"%s\", \"bodyDigest\": \"%s\" }"
+	      !delim !namespace !modname mo thm is_admitted prf (digest prf)
 	  else
-	    Printf.sprintf "%s { \"name\": \"%s%s.%s\", \"isAdmitted\": %B, \"bodyDigest\": \"%s\" }"
-	      !delim !namespace !modname thm is_admitted (digest prf)
+	    Printf.sprintf "%s { \"name\": \"%s%s.%s%s\", \"isAdmitted\": %B, \"bodyDigest\": \"%s\" }"
+	      !delim !namespace !modname mo thm is_admitted (digest prf)
 	in
 	printf row;
 	let eol = skip_to_dot lexbuf in
@@ -281,14 +301,15 @@ and coq = parse
       { let s = lexeme lexbuf in
 	let is_admitted = s = "Admitted" in
 	let thm = match !curr_thm with Some t -> t | None -> "" in
+	let mo = match !curr_mod with Some m -> (Printf.sprintf "%s." m) | None -> "" in
 	let prf = String.trim (Buffer.contents buf) in
 	let row =
 	  if !show_body then
-	    Printf.sprintf "%s { \"name\": \"%s%s.%s\", \"isAdmitted\": %B, \"body\": \"%s\", \"bodyDigest\": \"%s\" }"
-	      !delim !namespace !modname thm is_admitted prf (digest prf)
+	    Printf.sprintf "%s { \"name\": \"%s%s.%s%s\", \"isAdmitted\": %B, \"body\": \"%s\", \"bodyDigest\": \"%s\" }"
+	      !delim !namespace !modname mo thm is_admitted prf (digest prf)
 	  else
-	    Printf.sprintf "%s { \"name\": \"%s%s.%s\", \"isAdmitted\": %B, \"bodyDigest\": \"%s\" }"
-	      !delim !namespace !modname thm is_admitted (digest prf)
+	    Printf.sprintf "%s { \"name\": \"%s%s.%s%s\", \"isAdmitted\": %B, \"bodyDigest\": \"%s\" }"
+	      !delim !namespace !modname mo thm is_admitted (digest prf)
 	in
 	printf row;
 	let eol = skip_to_dot lexbuf in
@@ -329,15 +350,23 @@ and body = parse
 	false }
   | identifier
       { let s = lexeme lexbuf in
-	if !seen_thm then begin
-	  curr_thm := Some s;
-	  seen_thm := false;
-	  skip_to_dot lexbuf
-	end
-        else begin
-	  if !in_proof = Some true then Buffer.add_string buf s;
-          body lexbuf
-	end
+	if !seen_thm then
+	  begin
+	    curr_thm := Some s;
+	    seen_thm := false;
+	    skip_to_dot lexbuf
+	  end
+	else if !seen_mod then
+	  begin
+	    curr_mod := if s = "Type" then None else Some s;
+	    seen_mod := false;
+	    skip_to_dot lexbuf
+	  end
+        else
+	  begin
+	    if !in_proof = Some true then Buffer.add_string buf s;
+            body lexbuf
+	  end
       }
   | space
       { if !in_proof = Some true then Buffer.add_char buf (lexeme_char lexbuf 0);
