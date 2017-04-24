@@ -7,6 +7,7 @@
 
   let seen_thm = ref false
   let seen_mod = ref false
+  let seen_end = ref false
 
   let curr_thm = ref None
   let curr_mod = ref None
@@ -32,6 +33,7 @@
     delim := "";
     seen_thm := false;
     seen_mod := false;
+    seen_end := false;
     curr_thm := None;
     curr_mod := None;
     in_proof := None
@@ -241,6 +243,10 @@ rule coq_bol = parse
       { in_proof := Some true;
 	let eol = skip_to_dot lexbuf in
 	if eol then coq_bol lexbuf else coq lexbuf }
+  | space* mod_end_kw
+      { seen_end := true;
+	let eol = body lexbuf in
+	if eol then coq_bol lexbuf else coq lexbuf }
   | space* prf_opaque_end_kw
       {
 	let s = lexeme lexbuf in
@@ -297,6 +303,11 @@ and coq = parse
       { in_proof := Some true;
 	let eol = skip_to_dot lexbuf in
 	if eol then coq_bol lexbuf else coq lexbuf }
+  | mod_end_kw
+      { seen_end := true;
+	let eol = body lexbuf in
+	if eol then coq_bol lexbuf else coq lexbuf
+      }
   | prf_opaque_end_kw
       { let s = lexeme lexbuf in
 	let is_admitted = s = "Admitted" in
@@ -360,6 +371,12 @@ and body = parse
 	  begin
 	    curr_mod := if s = "Type" then None else Some s;
 	    seen_mod := false;
+	    skip_to_dot lexbuf
+	  end
+	else if !seen_end then
+	  begin
+	    begin match !curr_mod with None -> () | Some m -> if m = s then curr_mod := None end;
+	    seen_end := false;
 	    skip_to_dot lexbuf
 	  end
         else
