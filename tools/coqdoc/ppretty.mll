@@ -371,7 +371,7 @@ and body = parse
 	  begin
 	    curr_mod := if s = "Type" then None else Some s;
 	    seen_mod := false;
-	    skip_to_assignment_and_dot lexbuf
+	    skip_to_mod_assignment_and_dot lexbuf
 	  end
 	else if !seen_end then
 	  begin
@@ -397,12 +397,19 @@ and skip_to_dot = parse
   | eof | '.' space+ { false }
   | _ { skip_to_dot lexbuf }
 
-and skip_to_assignment_and_dot = parse
+and skip_to_mod_assignment_and_dot = parse
   | ":=" { curr_mod := None;
 	   skip_to_dot lexbuf }
   | '.' space* nl { true }
   | eof | '.' space+ { false }
-  | _ { skip_to_assignment_and_dot lexbuf }
+  | _ { skip_to_mod_assignment_and_dot lexbuf }
+
+and skip_to_instance_assignment_and_dot = parse
+  | ":=" { curr_thm := None;
+	   skip_to_dot lexbuf }
+  | '.' space* nl { true }
+  | eof | '.' space+ { false }
+  | _ { skip_to_instance_assignment_and_dot lexbuf }
 
 and skipped_comment = parse
   | "(*"
