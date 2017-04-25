@@ -6,6 +6,7 @@
   let namespace = ref ""
 
   let seen_thm = ref false
+  let seen_inst = ref false
   let seen_mod = ref false
   let seen_end = ref false
 
@@ -32,6 +33,7 @@
     comment_level := 0;
     delim := "";
     seen_thm := false;
+    seen_inst := false;
     seen_mod := false;
     seen_end := false;
     curr_thm := None;
@@ -82,7 +84,9 @@ let thm_token =
   | "Property"
   | "Goal"
   | "Definition"
-  | "Instance"
+
+let inst_token =
+  "Instance"
 
 let mod_token =
   "Module"
@@ -233,6 +237,12 @@ rule coq_bol = parse
       { seen_mod := true;
 	let eol = body lexbuf in
 	if eol then coq_bol lexbuf else coq lexbuf }
+  | space* inst_token
+      { seen_inst := true;
+	Buffer.clear buf;
+        let eol = body lexbuf in
+	in_proof := Some eol;
+	if eol then coq_bol lexbuf else coq lexbuf }
   | space* thm_token
       { seen_thm := true;
 	Buffer.clear buf;
@@ -248,25 +258,27 @@ rule coq_bol = parse
 	let eol = body lexbuf in
 	if eol then coq_bol lexbuf else coq lexbuf }
   | space* prf_opaque_end_kw
-      {
-	let s = lexeme lexbuf in
-	let is_admitted = s = "Admitted" in
-	let thm = match !curr_thm with Some t -> t | None -> "" in
-	let mo = match !curr_mod with Some m -> (Printf.sprintf "%s." m) | None -> "" in
-	let prf = String.trim (Buffer.contents buf) in
-	let row =
-	  if !show_body then
-	    Printf.sprintf "%s { \"name\": \"%s%s.%s%s\", \"isAdmitted\": %B, \"body\": \"%s\", \"bodyDigest\": \"%s\" }"
-	      !delim !namespace !modname mo thm is_admitted prf (digest prf)
-	  else
-	    Printf.sprintf "%s { \"name\": \"%s%s.%s%s\", \"isAdmitted\": %B, \"bodyDigest\": \"%s\" }"
-	      !delim !namespace !modname mo thm is_admitted (digest prf)
-	in
-	printf row;
+      { if !curr_thm <> None then
+	  begin
+	    let s = lexeme lexbuf in
+	    let is_admitted = s = "Admitted" in
+	    let thm = match !curr_thm with Some t -> t | None -> "" in
+	    let mo = match !curr_mod with Some m -> (Printf.sprintf "%s." m) | None -> "" in
+	    let prf = String.trim (Buffer.contents buf) in
+	    let row =
+	      if !show_body then
+		Printf.sprintf "%s { \"name\": \"%s%s.%s%s\", \"isAdmitted\": %B, \"body\": \"%s\", \"bodyDigest\": \"%s\" }"
+		  !delim !namespace !modname mo thm is_admitted prf (digest prf)
+	      else
+		Printf.sprintf "%s { \"name\": \"%s%s.%s%s\", \"isAdmitted\": %B, \"bodyDigest\": \"%s\" }"
+		  !delim !namespace !modname mo thm is_admitted (digest prf)
+	    in
+	    printf row;
+	    delim := ",\n"
+	  end;
 	let eol = skip_to_dot lexbuf in
 	in_proof := None;
 	curr_thm := None;
-	delim := ",\n";
 	Buffer.reset buf;
 	if eol then coq_bol lexbuf else coq lexbuf }
   | space* prf_not_opaque_end_kw
@@ -309,24 +321,27 @@ and coq = parse
 	if eol then coq_bol lexbuf else coq lexbuf
       }
   | prf_opaque_end_kw
-      { let s = lexeme lexbuf in
-	let is_admitted = s = "Admitted" in
-	let thm = match !curr_thm with Some t -> t | None -> "" in
-	let mo = match !curr_mod with Some m -> (Printf.sprintf "%s." m) | None -> "" in
-	let prf = String.trim (Buffer.contents buf) in
-	let row =
-	  if !show_body then
-	    Printf.sprintf "%s { \"name\": \"%s%s.%s%s\", \"isAdmitted\": %B, \"body\": \"%s\", \"bodyDigest\": \"%s\" }"
-	      !delim !namespace !modname mo thm is_admitted prf (digest prf)
-	  else
-	    Printf.sprintf "%s { \"name\": \"%s%s.%s%s\", \"isAdmitted\": %B, \"bodyDigest\": \"%s\" }"
-	      !delim !namespace !modname mo thm is_admitted (digest prf)
-	in
-	printf row;
+      { if !curr_thm <> None then
+	  begin
+	    let s = lexeme lexbuf in
+	    let is_admitted = s = "Admitted" in
+	    let thm = match !curr_thm with Some t -> t | None -> "" in
+	    let mo = match !curr_mod with Some m -> (Printf.sprintf "%s." m) | None -> "" in
+	    let prf = String.trim (Buffer.contents buf) in
+	    let row =
+	      if !show_body then
+		Printf.sprintf "%s { \"name\": \"%s%s.%s%s\", \"isAdmitted\": %B, \"body\": \"%s\", \"bodyDigest\": \"%s\" }"
+		  !delim !namespace !modname mo thm is_admitted prf (digest prf)
+	      else
+		Printf.sprintf "%s { \"name\": \"%s%s.%s%s\", \"isAdmitted\": %B, \"bodyDigest\": \"%s\" }"
+		  !delim !namespace !modname mo thm is_admitted (digest prf)
+	    in
+	    printf row;
+	    delim := ",\n"
+	  end;
 	let eol = skip_to_dot lexbuf in
 	in_proof := None;
 	curr_thm := None;
-	delim := ",\n";
 	Buffer.reset buf;
 	if eol then coq_bol lexbuf else coq lexbuf }
   | prf_not_opaque_end_kw
@@ -361,7 +376,13 @@ and body = parse
 	false }
   | identifier
       { let s = lexeme lexbuf in
-	if !seen_thm then
+	if !seen_inst then
+	  begin
+	    curr_thm := Some s;
+	    seen_inst := false;
+	    skip_to_instance_assignment_and_dot lexbuf
+	  end
+	else if !seen_thm then
 	  begin
 	    curr_thm := Some s;
 	    seen_thm := false;
