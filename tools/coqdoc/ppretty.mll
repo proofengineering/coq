@@ -258,24 +258,27 @@ rule coq_bol = parse
 	let eol = body lexbuf in
 	if eol then coq_bol lexbuf else coq lexbuf }
   | space* prf_opaque_end_kw
-      { if !curr_thm <> None then
+      { begin match !curr_thm with
+        | None -> ()
+        | Some thm ->
 	  begin
 	    let s = lexeme lexbuf in
 	    let is_admitted = s = "Admitted" in
-	    let thm = match !curr_thm with Some t -> t | None -> "" in
 	    let mo = match !curr_mod with Some m -> (Printf.sprintf "%s." m) | None -> "" in
 	    let prf = String.trim (Buffer.contents buf) in
+	    let prf_digest = digest prf in
 	    let row =
 	      if !show_body then
 		Printf.sprintf "%s { \"name\": \"%s%s.%s%s\", \"isAdmitted\": %B, \"body\": \"%s\", \"bodyDigest\": \"%s\" }"
-		  !delim !namespace !modname mo thm is_admitted prf (digest prf)
+		  !delim !namespace !modname mo thm is_admitted prf prf_digest
 	      else
 		Printf.sprintf "%s { \"name\": \"%s%s.%s%s\", \"isAdmitted\": %B, \"bodyDigest\": \"%s\" }"
-		  !delim !namespace !modname mo thm is_admitted (digest prf)
+		  !delim !namespace !modname mo thm is_admitted prf_digest
 	    in
 	    printf row;
 	    delim := ",\n"
-	  end;
+	  end
+        end;
 	let eol = skip_to_dot lexbuf in
 	in_proof := None;
 	curr_thm := None;
@@ -321,24 +324,27 @@ and coq = parse
 	if eol then coq_bol lexbuf else coq lexbuf
       }
   | prf_opaque_end_kw
-      { if !curr_thm <> None then
+      { begin match !curr_thm with
+        | None -> ()
+        | Some thm ->
 	  begin
 	    let s = lexeme lexbuf in
 	    let is_admitted = s = "Admitted" in
-	    let thm = match !curr_thm with Some t -> t | None -> "" in
 	    let mo = match !curr_mod with Some m -> (Printf.sprintf "%s." m) | None -> "" in
 	    let prf = String.trim (Buffer.contents buf) in
+	    let prf_digest = digest prf in
 	    let row =
 	      if !show_body then
 		Printf.sprintf "%s { \"name\": \"%s%s.%s%s\", \"isAdmitted\": %B, \"body\": \"%s\", \"bodyDigest\": \"%s\" }"
-		  !delim !namespace !modname mo thm is_admitted prf (digest prf)
+		  !delim !namespace !modname mo thm is_admitted prf prf_digest
 	      else
 		Printf.sprintf "%s { \"name\": \"%s%s.%s%s\", \"isAdmitted\": %B, \"bodyDigest\": \"%s\" }"
-		  !delim !namespace !modname mo thm is_admitted (digest prf)
+		  !delim !namespace !modname mo thm is_admitted prf_digest
 	    in
 	    printf row;
 	    delim := ",\n"
-	  end;
+	  end
+        end;
 	let eol = skip_to_dot lexbuf in
 	in_proof := None;
 	curr_thm := None;
