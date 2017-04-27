@@ -1428,11 +1428,13 @@ end = struct (* {{{ *)
     Printf.sprintf "\"%s\"" (string_of_gref gref) :: acc
 
   let print_body_deps name fmt c delim =
-    let deps =
-      match Global.body_of_constant_body c with
-      | Some t -> collect_long_names t Data.empty
-      | None -> Data.empty
+    let o =
+      match c.Declarations.const_body with
+      | Declarations.OpaqueDef o -> o
+      | _ -> assert false
     in
+    let t = Opaqueproof.force_proof (Global.opaque_tables ()) o in
+    let deps = collect_long_names t Data.empty in
     let sdb = (Data.fold acc_gref) deps [] in
     let s = Printf.sprintf
       "%s { \"name\": \"%s\", \"isProp\": %B, \"isOpaque\": true, \"bodyDepends\": [%s] }"
