@@ -1449,6 +1449,7 @@ end = struct (* {{{ *)
           Nametab.locate_constant
             (Libnames.qualid_of_ident po.Proof_global.id) in
 	let gr = Globnames.ConstRef con in
+	Printf.printf "printing deps for task %s\n" (string_of_gref gr);
 	print_body_deps fmt gr delim;
 	true
 
