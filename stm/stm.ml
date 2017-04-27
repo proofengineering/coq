@@ -1427,17 +1427,19 @@ end = struct (* {{{ *)
   let acc_gref gref () acc =
     Printf.sprintf "\"%s\"" (string_of_gref gref) :: acc
 
-  let print_body_deps fmt gref delim =
-    match gref with
-    | Globnames.VarRef _  | Globnames.ConstructRef _ -> ()
-    | Globnames.ConstRef _ | Globnames.IndRef _ ->
-      let sdb = (Data.fold acc_gref) (collect_body_deps gref) [] in
-      let s = Printf.sprintf
-	"%s { \"name\": \"%s\", \"isProp\": %B, \"isOpaque\": true, \"bodyDepends\": [%s] }"
-	!delim (string_of_gref gref) (is_prop gref) (String.concat ", " sdb)
-      in
-      pp_with fmt (str s);
-      delim := ",\n"
+  let print_body_deps name fmt c delim =
+    let deps =
+      match Global.body_of_constant_body c with
+      | Some t -> collect_long_names t Data.empty
+      | None -> Data.empty
+    in
+    let sdb = (Data.fold acc_gref) deps [] in
+    let s = Printf.sprintf
+      "%s { \"name\": \"%s\", \"isProp\": %B, \"isOpaque\": true, \"bodyDepends\": [%s] }"
+      !delim name true (String.concat ", " sdb)
+    in
+    pp_with fmt (str s);
+    delim := ",\n"
 
   let check_task_depends name l fmt delim i =
     match check_task_aux "" name l i with
@@ -1448,9 +1450,8 @@ end = struct (* {{{ *)
         let con =
           Nametab.locate_constant
             (Libnames.qualid_of_ident po.Proof_global.id) in
-	let gr = Globnames.ConstRef con in
-	Printf.printf "printing deps for task %s\n" (string_of_gref gr);
-	print_body_deps fmt gr delim;
+	let c = Global.lookup_constant con in
+	print_body_deps name fmt c delim;
 	true
 
   let info_tasks l =
