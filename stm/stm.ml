@@ -1335,26 +1335,6 @@ end = struct (* {{{ *)
     | `OK _ | `OK_ADMITTED -> true
     | `ERROR | `ERROR_ADMITTED -> false
 
-  let is_prop gref =
-    try
-      let glob = Glob_term.GRef(Loc.ghost, gref, None) in
-      let env = Global.env() in
-      let sigma = Evd.from_env env in
-      let sigma', c = Pretyping.understand_tcc env sigma glob in
-      let sigma2 = Evarconv.consider_remaining_unif_problems env sigma' in
-      let sigma3, nf = Evarutil.nf_evars_and_universes sigma2 in
-      let pl, uctx = Evd.universe_context sigma3 in
-      let env2 = Environ.push_context uctx (Evarutil.nf_env_evar sigma3 env) in
-      let c2 = nf c in
-      let t = Environ.j_type (Typeops.infer env2 c2) in
-      let t2 = Environ.j_type (Typeops.infer env2 t) in
-      Term.is_Prop t2
-    with _ ->
-      begin
-	msg_warning (str "unable to determine the type of the type for ref");
-	false
-      end
-
   module Data = struct
     type t = unit Globnames.Refmap.t
     let empty = Globnames.Refmap.empty
@@ -1427,12 +1407,12 @@ end = struct (* {{{ *)
   let acc_gref gref () acc =
     Printf.sprintf "\"%s\"" (string_of_gref gref) :: acc
 
-  let print_body_deps name fmt t delim =
+  let print_body_deps name t fmt delim =
     let deps = collect_long_names t Data.empty in
     let sdb = (Data.fold acc_gref) deps [] in
     let s = Printf.sprintf
-      "%s { \"name\": \"%s\", \"isProp\": %B, \"isOpaque\": true, \"bodyDepends\": [%s] }"
-      !delim name true (String.concat ", " sdb)
+      "%s { \"name\": \"%s\", \"bodyDepends\": [%s] }"
+      !delim name (String.concat ", " sdb)
     in
     pp_with fmt (str s);
     delim := ",\n"
@@ -1454,7 +1434,8 @@ end = struct (* {{{ *)
 	let pr = Future.chain ~greedy:true ~pure:true pr discharge in
         let pr = Future.chain ~greedy:true ~pure:true pr Constr.hcons in
 	let t = Future.join pr in
-	print_body_deps name fmt t delim;
+	let nm = Names.string_of_kn (Names.canonical_con con) in
+	print_body_deps nm t fmt delim;
 	true
 
   let info_tasks l =
