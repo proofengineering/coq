@@ -1421,6 +1421,8 @@ end = struct (* {{{ *)
         let pr = Future.chain ~greedy:true ~pure:true pr Constr.hcons in
 	let t = Future.join pr in
 	let nm = Names.string_of_kn (Names.canonical_con cn) in
+	let r = Str.regexp "#[^#]+#" in
+	let nm = Str.replace_first r "." nm in
 	print_body_deps nm t fmt delim;
 	true
 
