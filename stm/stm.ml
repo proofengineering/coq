@@ -1404,7 +1404,7 @@ end = struct (* {{{ *)
     delim := ",\n"
 
   let check_task_depends name d l fmt delim i =
-    let { Stateid.uuid = bucket }, drop = List.nth l i in
+    let { Stateid.uuid = bucket; name = lm }, drop = List.nth l i in
     let bucket_name =
       if bucket < 0 then (assert drop; ", no bucket")
       else Printf.sprintf ", bucket %d" bucket in
@@ -1420,8 +1420,7 @@ end = struct (* {{{ *)
 	let pr = Future.chain ~greedy:true ~pure:true pr discharge in
         let pr = Future.chain ~greedy:true ~pure:true pr Constr.hcons in
 	let t = Future.join pr in
-	let cn = Nametab.locate_constant (Libnames.qualid_of_ident po.Proof_global.id) in
-	let nm = Names.string_of_kn (Names.canonical_con cn) in
+	let nm = Printf.sprintf "%s.%s" name lm in
 	print_body_deps nm t fmt delim;
 	true
 
