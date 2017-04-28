@@ -1381,20 +1381,6 @@ end = struct (* {{{ *)
       | Term.Proj(p, c) -> add c acc
     in add c acc
 
-  let collect_body_deps gref =
-    match gref with
-    | Globnames.VarRef _ -> Data.empty
-    | Globnames.ConstRef cst ->
-      let cb = Environ.lookup_constant cst (Global.env()) in
-      (match Global.body_of_constant_body cb with
-      | Some t -> collect_long_names t Data.empty
-      | None -> Data.empty)
-    | Globnames.IndRef i ->
-      let _, indbody = Global.lookup_inductive i in
-      let ca = indbody.Declarations.mind_user_lc in
-      Array.fold_right collect_long_names ca Data.empty
-    | Globnames.ConstructRef _ -> Data.empty
-
   let string_of_gref gref =
     match gref with
     | Globnames.VarRef _ -> ""
@@ -1428,13 +1414,14 @@ end = struct (* {{{ *)
     | `OK_ADMITTED -> true
     | `OK (po,_) ->
         let discharge c = List.fold_right Cooking.cook_constr d.(bucket) c in
-        let con = Nametab.locate_constant (Libnames.qualid_of_ident po.Proof_global.id) in
-        let c = Global.lookup_constant con in
+        let cn = Nametab.locate_constant (Libnames.qualid_of_ident po.Proof_global.id) in
+        let c = Global.lookup_constant cn in
 	let pr = Future.from_val (Option.get (Global.body_of_constant_body c)) in
 	let pr = Future.chain ~greedy:true ~pure:true pr discharge in
         let pr = Future.chain ~greedy:true ~pure:true pr Constr.hcons in
 	let t = Future.join pr in
-	let nm = Names.string_of_kn (Names.canonical_con con) in
+	let cn = Nametab.locate_constant (Libnames.qualid_of_ident po.Proof_global.id) in
+	let nm = Names.string_of_kn (Names.canonical_con cn) in
 	print_body_deps nm t fmt delim;
 	true
 
