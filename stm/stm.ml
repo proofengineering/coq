@@ -1214,7 +1214,7 @@ and Slaves : sig
   type 'a tasks = (('a,VCS.vcs) Stateid.request * bool) list
   val dump_snapshot : unit -> Future.UUID.t tasks
   val check_task : string -> int tasks -> int -> bool
-  val check_task_depends : string -> int tasks -> Format.formatter -> string ref -> int -> bool
+  val check_task_depends : string -> Library.seg_discharge -> int tasks -> Format.formatter -> string ref -> int -> bool
   val info_tasks : 'a tasks -> (string * float * int) list
   val finish_task :
     string ->
@@ -1427,13 +1427,7 @@ end = struct (* {{{ *)
   let acc_gref gref () acc =
     Printf.sprintf "\"%s\"" (string_of_gref gref) :: acc
 
-  let print_body_deps name fmt c delim =
-    let o =
-      match c.Declarations.const_body with
-      | Declarations.OpaqueDef o -> o
-      | _ -> assert false
-    in
-    let t = Opaqueproof.force_proof (Global.opaque_tables ()) o in
+  let print_body_deps name fmt t delim =
     let deps = collect_long_names t Data.empty in
     let sdb = (Data.fold acc_gref) deps [] in
     let s = Printf.sprintf
@@ -1443,17 +1437,24 @@ end = struct (* {{{ *)
     pp_with fmt (str s);
     delim := ",\n"
 
-  let check_task_depends name l fmt delim i =
+  let check_task_depends name d l fmt delim i =
+    let { Stateid.uuid = bucket }, drop = List.nth l i in
+    let bucket_name =
+      if bucket < 0 then (assert drop; ", no bucket")
+      else Printf.sprintf ", bucket %d" bucket in
     match check_task_aux "" name l i with
     | `ERROR -> false
     | `ERROR_ADMITTED -> false
     | `OK_ADMITTED -> true
     | `OK (po,_) ->
-        let con =
-          Nametab.locate_constant
-            (Libnames.qualid_of_ident po.Proof_global.id) in
-	let c = Global.lookup_constant con in
-	print_body_deps name fmt c delim;
+        let discharge c = List.fold_right Cooking.cook_constr d.(bucket) c in
+        let con = Nametab.locate_constant (Libnames.qualid_of_ident po.Proof_global.id) in
+        let c = Global.lookup_constant con in
+	let pr = Future.from_val (Option.get (Global.body_of_constant_body c)) in
+	let pr = Future.chain ~greedy:true ~pure:true pr discharge in
+        let pr = Future.chain ~greedy:true ~pure:true pr Constr.hcons in
+	let t = Future.join pr in
+	print_body_deps name fmt t delim;
 	true
 
   let info_tasks l =
@@ -2162,11 +2163,11 @@ let check_task name (tasks,rcbackup) i =
     VCS.restore vcs;
     rc
   with e when Errors.noncritical e -> VCS.restore vcs; false
-let check_task_depends name (tasks,rcbackup) fmt delim i =
+let check_task_depends name d (tasks,rcbackup) fmt delim i =
   RemoteCounter.restore rcbackup;
   let vcs = VCS.backup () in
   try
-    let rc = Future.purify (Slaves.check_task_depends name tasks fmt delim) i in
+    let rc = Future.purify (Slaves.check_task_depends name d tasks fmt delim) i in
     pperr_flush ();
     VCS.restore vcs;
     rc
