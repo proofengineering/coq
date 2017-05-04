@@ -19,6 +19,7 @@
   let show_body = ref false
 
   let comment_level = ref 0
+  let paren_level = ref 0
 
   (* helper functions *)
 
@@ -31,6 +32,7 @@
 
   let reset () =
     comment_level := 0;
+    paren_level := 0;
     delim := "";
     seen_thm := false;
     seen_inst := false;
@@ -399,6 +401,7 @@ and body = parse
 	  begin
 	    curr_mod := if s = "Type" then None else Some s;
 	    seen_mod := false;
+	    paren_level := 0; (* FIXME: shouldn't be needed *)
 	    skip_to_mod_assignment_and_dot lexbuf
 	  end
 	else if !seen_end then
@@ -426,8 +429,17 @@ and skip_to_dot = parse
   | _ { skip_to_dot lexbuf }
 
 and skip_to_mod_assignment_and_dot = parse
-  | ":=" { curr_mod := None;
-	   skip_to_dot lexbuf }
+  | "(" { incr paren_level;
+	  skip_to_mod_assignment_and_dot lexbuf }
+  | ")" { decr paren_level;
+	  skip_to_mod_assignment_and_dot lexbuf }
+  | ":=" { if !paren_level = 0 then
+             begin
+              curr_mod := None;
+              skip_to_dot lexbuf
+	     end
+           else
+             skip_to_mod_assignment_and_dot lexbuf }
   | '.' space* nl { true }
   | eof | '.' space+ { false }
   | _ { skip_to_mod_assignment_and_dot lexbuf }
