@@ -84,6 +84,7 @@ let thm_token =
   | "Property"
   | "Goal"
   | "Definition"
+  | "Example"
 
 let inst_token =
   "Instance"
