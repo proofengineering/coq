@@ -383,6 +383,16 @@ and body = parse
   | '.' space+
       { if !in_proof = Some true then Buffer.add_string buf ". ";
 	false }
+  | '{'
+      {
+	if !in_proof = Some true then
+	  begin
+	    Buffer.add_char buf (lexeme_char lexbuf 0);
+	    skip_to_right_brace_in_proof lexbuf
+	  end
+	else
+	  body lexbuf
+      }
   | identifier
       { let s = lexeme lexbuf in
 	if !seen_inst then
@@ -463,6 +473,20 @@ and skipped_comment = parse
         if !comment_level > 0 then skipped_comment lexbuf else false }
   | eof { false }
   | _ { skipped_comment lexbuf }
+
+and skip_to_right_brace_in_proof = parse
+  | '}' space* nl
+      { Buffer.add_char buf '}';
+	Buffer.add_char buf '\n';
+	true
+      }
+  | '}' space+
+      { Buffer.add_char buf '}';
+	Buffer.add_char buf ' ';
+	false }
+  | eof { false }
+  | _ { Buffer.add_char buf (lexeme_char lexbuf 0); skip_to_right_brace_in_proof lexbuf }
+
 
 (* Applying the scanners to files *)
 
