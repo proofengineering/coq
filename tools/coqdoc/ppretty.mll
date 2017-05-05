@@ -20,6 +20,7 @@
 
   let comment_level = ref 0
   let paren_level = ref 0
+  let brace_level = ref 0
 
   (* helper functions *)
 
@@ -33,6 +34,7 @@
   let reset () =
     comment_level := 0;
     paren_level := 0;
+    brace_level := 0;
     delim := "";
     seen_thm := false;
     seen_inst := false;
@@ -388,6 +390,7 @@ and body = parse
 	if !in_proof = Some true then
 	  begin
 	    Buffer.add_char buf (lexeme_char lexbuf 0);
+	    brace_level := 1;
 	    skip_to_right_brace_in_proof lexbuf
 	  end
 	else
@@ -475,15 +478,21 @@ and skipped_comment = parse
   | _ { skipped_comment lexbuf }
 
 and skip_to_right_brace_in_proof = parse
+  | '{'
+      { Buffer.add_char buf (lexeme_char lexbuf 0);
+	incr brace_level;
+	skip_to_right_brace_in_proof lexbuf }
   | '}' space* nl
       { Buffer.add_char buf '}';
 	Buffer.add_char buf '\n';
-	true
+	decr brace_level;
+	if !brace_level = 0 then true else skip_to_right_brace_in_proof lexbuf
       }
   | '}' space+
       { Buffer.add_char buf '}';
 	Buffer.add_char buf ' ';
-	false }
+	decr brace_level;
+	if !brace_level = 0 then false else skip_to_right_brace_in_proof lexbuf }
   | eof { false }
   | _ { Buffer.add_char buf (lexeme_char lexbuf 0); skip_to_right_brace_in_proof lexbuf }
 
