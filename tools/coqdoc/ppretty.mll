@@ -242,12 +242,12 @@ rule coq_bol = parse
       { seen_mod := true;
 	let eol = body lexbuf in
 	if eol then coq_bol lexbuf else coq lexbuf }
-  | space* inst_token
+(*  | space* inst_token
       { seen_inst := true;
 	Buffer.clear buf;
         let eol = body lexbuf in
 	in_proof := Some eol;
-	if eol then coq_bol lexbuf else coq lexbuf }
+	if eol then coq_bol lexbuf else coq lexbuf } *)
   | space* thm_token
       { seen_thm := true;
 	Buffer.clear buf;
