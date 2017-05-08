@@ -6,7 +6,6 @@
   let namespace = ref ""
 
   let seen_thm = ref false
-  let seen_inst = ref false
   let seen_mod = ref false
   let seen_end = ref false
 
@@ -37,7 +36,6 @@
     brace_level := 0;
     delim := "";
     seen_thm := false;
-    seen_inst := false;
     seen_mod := false;
     seen_end := false;
     curr_thm := None;
@@ -89,9 +87,7 @@ let thm_token =
   | "Goal"
   | "Definition"
   | "Example"
-
-let inst_token =
-  "Instance"
+(*  | "Instance" *)
 
 let mod_token =
   "Module"
@@ -242,12 +238,6 @@ rule coq_bol = parse
       { seen_mod := true;
 	let eol = body lexbuf in
 	if eol then coq_bol lexbuf else coq lexbuf }
-(*  | space* inst_token
-      { seen_inst := true;
-	Buffer.clear buf;
-        let eol = body lexbuf in
-	in_proof := Some eol;
-	if eol then coq_bol lexbuf else coq lexbuf } *)
   | space* thm_token
       { seen_thm := true;
 	Buffer.clear buf;
@@ -387,7 +377,7 @@ and body = parse
 	false }
   | '{'
       {
-	if !in_proof = Some true then
+	if !curr_thm <> None && !in_proof = Some true then
 	  begin
 	    Buffer.add_char buf (lexeme_char lexbuf 0);
 	    brace_level := 1;
@@ -398,23 +388,19 @@ and body = parse
       }
   | identifier
       { let s = lexeme lexbuf in
-	if !seen_inst then
-	  begin
-	    curr_thm := Some s;
-	    seen_inst := false;
-	    skip_to_instance_assignment_and_dot lexbuf
-	  end
-	else if !seen_thm then
+	if !seen_thm then
 	  begin
 	    curr_thm := Some s;
 	    seen_thm := false;
-	    skip_to_dot lexbuf
+	    paren_level := 0;
+	    brace_level := 0;
+	    skip_to_thm_assignment_and_dot lexbuf
 	  end
 	else if !seen_mod then
 	  begin
 	    curr_mod := if s = "Type" then None else Some s;
 	    seen_mod := false;
-	    paren_level := 0; (* FIXME: shouldn't be needed *)
+	    paren_level := 0;
 	    skip_to_mod_assignment_and_dot lexbuf
 	  end
 	else if !seen_end then
@@ -457,12 +443,25 @@ and skip_to_mod_assignment_and_dot = parse
   | eof | '.' space+ { false }
   | _ { skip_to_mod_assignment_and_dot lexbuf }
 
-and skip_to_instance_assignment_and_dot = parse
-  | ":=" { curr_thm := None;
-	   skip_to_dot lexbuf }
+and skip_to_thm_assignment_and_dot = parse
+  | "{|" { incr brace_level;
+	  skip_to_thm_assignment_and_dot lexbuf }
+  | "|}" { decr brace_level;
+	  skip_to_thm_assignment_and_dot lexbuf }
+  | "(" { incr paren_level;
+	  skip_to_thm_assignment_and_dot lexbuf }
+  | ")" { decr paren_level;
+	  skip_to_thm_assignment_and_dot lexbuf }
+  | ":=" { if !paren_level = 0 && !brace_level = 0 then
+             begin
+              curr_thm := None;
+              skip_to_dot lexbuf
+	     end
+           else
+             skip_to_thm_assignment_and_dot lexbuf }
   | '.' space* nl { true }
   | eof | '.' space+ { false }
-  | _ { skip_to_instance_assignment_and_dot lexbuf }
+  | _ { skip_to_thm_assignment_and_dot lexbuf }
 
 and skipped_comment = parse
   | "(*"
