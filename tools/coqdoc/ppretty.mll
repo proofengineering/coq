@@ -8,6 +8,7 @@
   let seen_thm = ref false
   let seen_mod = ref false
   let seen_end = ref false
+  let seen_let = ref false
 
   let curr_thm = ref None
   let curr_mod = ref None
@@ -38,6 +39,7 @@
     seen_thm := false;
     seen_mod := false;
     seen_end := false;
+    seen_let := false;
     curr_thm := None;
     curr_mod := None;
     in_proof := None
@@ -396,6 +398,7 @@ and body = parse
 	    seen_thm := false;
 	    paren_level := 0;
 	    brace_level := 0;
+	    seen_let := false;
 	    skip_to_thm_assignment_and_dot lexbuf
 	  end
 	else if !seen_mod then
@@ -446,6 +449,8 @@ and skip_to_mod_assignment_and_dot = parse
   | _ { skip_to_mod_assignment_and_dot lexbuf }
 
 and skip_to_thm_assignment_and_dot = parse
+  | "let" { if !paren_level = 0 then seen_let := true;
+	    skip_to_thm_assignment_and_dot lexbuf }
   | "{|" { incr brace_level;
 	  skip_to_thm_assignment_and_dot lexbuf }
   | "|}" { decr brace_level;
@@ -454,12 +459,17 @@ and skip_to_thm_assignment_and_dot = parse
 	  skip_to_thm_assignment_and_dot lexbuf }
   | ")" { decr paren_level;
 	  skip_to_thm_assignment_and_dot lexbuf }
-  | ":=" { if !paren_level = 0 && !brace_level = 0 then
+  | ":=" { if !paren_level = 0 && !brace_level = 0 && not !seen_let then
              begin
               curr_thm := None;
               skip_to_dot lexbuf
 	     end
-           else
+           else if !seen_let then
+	     begin
+	       seen_let := false;
+	       skip_to_thm_assignment_and_dot lexbuf
+	     end
+	   else
              skip_to_thm_assignment_and_dot lexbuf }
   | '.' space* nl { true }
   | eof | '.' space+ { false }
