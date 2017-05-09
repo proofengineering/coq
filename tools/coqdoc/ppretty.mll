@@ -375,6 +375,8 @@ and body = parse
   | '.' space+
       { if !in_proof = Some true then Buffer.add_string buf ". ";
 	false }
+  | "{|" { if !in_proof = Some true then Buffer.add_string buf "{|";
+	   body lexbuf }
   | '{'
       {
 	if !curr_thm <> None && !in_proof = Some true then
