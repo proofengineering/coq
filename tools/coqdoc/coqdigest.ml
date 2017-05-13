@@ -9,6 +9,7 @@ let usage () =
   prerr_endline "  --stdout             write output to stdout";
   prerr_endline "  -n <string>          set namespace <string>";
   prerr_endline "  -b                   show proof bodies (for debugging)";
+  prerr_endline "  -a                   use adler32 for digests";
   prerr_endline "";
   exit 1
 
@@ -28,6 +29,7 @@ let paths = ref []
 
 let namespace = ref None
 let show_body = ref false
+let use_adler32 = ref false
 
 let add_path dir name =
   let p = normalize_path dir in
@@ -84,6 +86,9 @@ let parse () =
     | ("-b" | "-body" | "--body") :: rem ->
 	show_body := true; parse_rec rem
 
+    | ("-a" | "-adler32" | "--adler32") :: rem ->
+	use_adler32 := true; parse_rec rem
+
     | ("-n" | "-namespace" | "--namespace") :: n :: rem ->
         namespace := Some n; parse_rec rem
 
@@ -99,7 +104,7 @@ let parse () =
 let gen_one_file l =
   let file = function
     | Vernac_file (f,m) ->
-        Ppretty.coq_file f m !namespace !show_body
+        Ppretty.coq_file f m !namespace !show_body !use_adler32
     | _ -> ()
   in
   List.iter file l
@@ -109,7 +114,7 @@ let gen_mult_files l =
     | Vernac_file (f,m) ->
         let hf = Printf.sprintf "%s.json" m in
         open_out_file hf;
-        Ppretty.coq_file f m !namespace !show_body;
+        Ppretty.coq_file f m !namespace !show_body !use_adler32;
         close_out_file ()
     | _ -> ()
   in
