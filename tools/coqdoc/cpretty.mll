@@ -449,11 +449,11 @@ rule coq_bol = parse
       { if not (!in_proof <> None && (!Cdglobals.gallina || !Cdglobals.light))
         then Output.empty_line_of_code ();
         coq_bol lexbuf }
-  | space* "(**" space_nl
+(*  | space* "(**" space_nl
       { Output.end_coq (); Output.start_doc ();
 	let eol = doc_bol lexbuf in
 	  Output.end_doc (); Output.start_coq ();
-	  if eol then coq_bol lexbuf else coq lexbuf }
+	  if eol then coq_bol lexbuf else coq lexbuf } *)
   | space* "Comments" space_nl
       { Output.end_coq (); Output.start_doc (); comments lexbuf; Output.end_doc ();
 	Output.start_coq (); coq lexbuf }
@@ -518,7 +518,7 @@ rule coq_bol = parse
 	let eol= start_notation_string lexbuf in
 	if eol then coq_bol lexbuf else coq lexbuf }
 
-  | space* "(**" space+ "printing" space+ printing_token space+
+(*  | space* "(**" space+ "printing" space+ printing_token space+
       { let tok = lexeme lexbuf in
 	let s = printing_token_body lexbuf in
 	  add_printing_token tok s;
@@ -538,7 +538,7 @@ rule coq_bol = parse
 	  (lexeme_start lexbuf); flush stderr;
 	comment_level := 1;
 	ignore (comment lexbuf);
-	coq_bol lexbuf }
+	coq_bol lexbuf } *)
   | space* "(*"
       { comment_level := 1;
         let eol =
@@ -566,11 +566,11 @@ rule coq_bol = parse
 and coq = parse
   | nl
       { if not (only_gallina ()) then Output.line_break(); coq_bol lexbuf }
-  | "(**" space_nl
+(*  | "(**" space_nl
       { Output.end_coq (); Output.start_doc ();
 	let eol = doc_bol lexbuf in
 	  Output.end_doc (); Output.start_coq ();
-	  if eol then coq_bol lexbuf else coq lexbuf }
+	  if eol then coq_bol lexbuf else coq lexbuf } *)
   | "(*"
       { comment_level := 1;
         let eol =
@@ -811,7 +811,7 @@ and doc indents = parse
           if !Cdglobals.parse_comments then comment lexbuf
           else skipped_comment lexbuf in
         if eol then bol_parse lexbuf else doc indents lexbuf }
-  | '*'* "*)" space_nl* "(**"
+(*  | '*'* "*)" space_nl* "(**"
       {(match indents with
         | Some _ -> Output.stop_item ()
         | None -> ());
@@ -822,7 +822,7 @@ and doc indents = parse
        in 
          if lines > 2 then Output.paragraph ();
        doc_bol lexbuf
-      }
+      } *)
   | '*'* "*)" space* nl
       { true }
   | '*'* "*)"
@@ -1130,11 +1130,11 @@ and body = parse
   | '.' space+
         { Tokens.flush_sublexer(); Output.char '.'; Output.char ' ';
 	  if not !formatted then false else body lexbuf }
-  | "(**" space_nl
+(*  | "(**" space_nl
       { Tokens.flush_sublexer(); Output.end_coq (); Output.start_doc ();
 	let eol = doc_bol lexbuf in
 	  Output.end_doc (); Output.start_coq ();
-	  if eol then body_bol lexbuf else body lexbuf }
+	  if eol then body_bol lexbuf else body lexbuf } *)
   | "(*"
       { Tokens.flush_sublexer(); comment_level := 1;
         let eol =
