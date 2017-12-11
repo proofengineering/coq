@@ -10,7 +10,6 @@
 val check_vio : int list * string -> bool
 val check_vio_depends : int list * string -> Format.formatter -> string ref -> bool
 val schedule_vio_checking : int -> string list -> unit
-
 val schedule_vio_compilation : int -> string list -> unit
-
 val schedule_vio_task_checking : int -> (int list * string) list -> unit
+val schedule_vio_task_depends_checking : int -> (int list * string) list -> unit
