@@ -410,6 +410,10 @@ let depsfile = ref ""
 let depsfile_specified = ref false
 let set_depsfile s = depsfile := s; depsfile_specified := true
 
+let depsfiletemplate = ref ""
+let depsfiletemplate_specified = ref false
+let set_depsfiletemplate s = depsfiletemplate := s; depsfiletemplate_specified := true
+
 let buf = Buffer.create 1000
 
 let formatter out =
@@ -463,6 +467,12 @@ let is_not_dash_option = function
   | Some f when String.length f > 0 && f.[0] <> '-' -> true
   | _ -> false
 
+let get_depends_file_template () =
+  if !depsfiletemplate_specified then
+    Some !depsfiletemplate
+  else
+    None
+
 let schedule_vio_checking () =
   if !vio_files <> [] && !vio_checking then
     Vio_checking.schedule_vio_checking !vio_files_j !vio_files
@@ -474,7 +484,7 @@ let schedule_vio_task_checking () =
     Vio_checking.schedule_vio_task_checking !vio_files_j !vio_schedule_tasks
 let schedule_vio_depends_task_checking () =
   if !vio_files = [] && not !vio_checking && not !vio_task_checking && !vio_depends_task_checking then
-    Vio_checking.schedule_vio_depends_task_checking !vio_files_j !vio_schedule_tasks
+    Vio_checking.schedule_vio_depends_task_checking !vio_files_j !vio_schedule_tasks (get_depends_file_template ())
 
 let get_native_name s =
   (* We ignore even critical errors because this mode has to be super silent *)
@@ -595,6 +605,7 @@ let parse_args arglist =
     |"-toploop" -> set_toploop (next ())
     |"-w" -> set_warning (next ())
     |"-depends-file" -> set_depsfile (next ())
+    |"-depends-file-template" -> set_depsfiletemplate (next ())
 
     (* Options with zero arg *)
     |"-async-queries-always-delegate"

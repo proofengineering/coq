@@ -29,7 +29,7 @@ end
 
 module Pool = Map.Make(IntOT)
 
-let schedule_vio_depends_task_checking j tsfs =
+let schedule_vio_depends_task_checking j tsfs tpl =
   if j < 1 then Errors.error "The number of workers must be bigger than 0";
   let jobs = ref [] in
   List.iter (fun (ts, f) ->
@@ -86,11 +86,18 @@ let schedule_vio_depends_task_checking j tsfs =
     if !what = [] then take_next_file ();
     eta := !eta -. !cur;
     let cmp_job (f1,_,_) (f2,_,_) = compare f1 f2 in
-    List.flatten
+    let depends_file_l =
+      match tpl with
+      | None -> []
+      | Some tf ->
+         ["-depends-file"; string_of_int j_left ^ tf]
+    in
+    depends_file_l @ List.flatten
       (List.map (fun (f, tl) ->
         "-check-vio-depends-tasks" ::
-        String.concat "," (List.map string_of_int tl) :: [f])
-      (pack (List.sort cmp_job !what))) in
+          String.concat "," (List.map string_of_int tl) :: [f])
+         (pack (List.sort cmp_job !what)))
+  in
   let rc = ref 0 in
   while !jobs <> [] || Pool.cardinal !pool > 0 do
     while Pool.cardinal !pool < j && !jobs <> [] do
