@@ -29,7 +29,7 @@ end
 
 module Pool = Map.Make(IntOT)
 
-let schedule_vio_task_depends_checking j tsfs =
+let schedule_vio_depends_task_checking j tsfs =
   if j < 1 then Errors.error "The number of workers must be bigger than 0";
   let jobs = ref [] in
   List.iter (fun (ts, f) ->
@@ -49,7 +49,7 @@ let schedule_vio_task_depends_checking j tsfs =
   let pool : Worker.process Pool.t ref = ref Pool.empty in
   let rec filter_argv b = function
     | [] -> []
-    | "-schedule-vio-task-depends-checking" :: rest -> filter_argv true rest
+    | "-schedule-vio-depends-task-checking" :: rest -> filter_argv true rest
     | s :: rest when String.length s > 0 && s.[0] = '-' && b -> filter_argv false (s :: rest)
     | _ :: rest when b -> filter_argv b rest
     | s :: rest -> s :: filter_argv b rest in

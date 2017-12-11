@@ -143,6 +143,7 @@ let parse_args () =
     | ("-schedule-vio-checking"
       |"-check-vio-depends-tasks"
       |"-schedule-vio-task-checking"
+      |"-schedule-vio-depends-task-checking"
       |"-check-vio-tasks" | "-schedule-vio2vo" as o) :: s :: rem ->
         let nodash, rem =
           CList.split_when (fun x -> String.length x > 1 && x.[0] = '-') rem in

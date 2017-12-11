@@ -444,7 +444,7 @@ let vio_files = ref []
 let vio_files_j = ref 0
 let vio_checking = ref false
 let vio_task_checking = ref false
-let vio_task_depends_checking = ref false
+let vio_depends_task_checking = ref false
 let add_vio_file f =
   set_batch_mode ();
   Flags.make_silent true;
@@ -472,9 +472,9 @@ let schedule_vio_compilation () =
 let schedule_vio_task_checking () =
   if !vio_files = [] && not !vio_checking && !vio_task_checking then
     Vio_checking.schedule_vio_task_checking !vio_files_j !vio_schedule_tasks
-let schedule_vio_task_depends_checking () =
-  if !vio_files = [] && not !vio_checking && not !vio_task_checking && !vio_task_depends_checking then
-    Vio_checking.schedule_vio_task_depends_checking !vio_files_j !vio_schedule_tasks
+let schedule_vio_depends_task_checking () =
+  if !vio_files = [] && not !vio_checking && not !vio_task_checking && !vio_depends_task_checking then
+    Vio_checking.schedule_vio_depends_task_checking !vio_files_j !vio_schedule_tasks
 
 let get_native_name s =
   (* We ignore even critical errors because this mode has to be super silent *)
@@ -538,8 +538,8 @@ let parse_args arglist =
          let tfile = next () in
          add_vio_schedule_task (tno, tfile)
        done
-    |"-schedule-vio-task-depends-checking" ->
-       vio_task_depends_checking := true;
+    |"-schedule-vio-depends-task-checking" ->
+       vio_depends_task_checking := true;
        set_vio_checking_j opt (next ());
        while is_not_dash_option (peek_next ()) do
          let tno = get_task_list (next ()) in
@@ -713,7 +713,7 @@ let init arglist =
       schedule_vio_checking ();
       schedule_vio_compilation ();
       schedule_vio_task_checking ();
-      schedule_vio_task_depends_checking ();
+      schedule_vio_depends_task_checking ();
       check_vio_tasks ();
       check_vio_depends_tasks ();
       outputstate ()
