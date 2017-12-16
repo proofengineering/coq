@@ -90,7 +90,8 @@ let schedule_vio_depends_task_checking j tsfs tpl =
       match tpl with
       | None -> []
       | Some tf ->
-         ["-depends-file"; string_of_int (Pool.cardinal !pool) ^ "_" ^ tf]
+         let tf_id = string_of_int (Pool.cardinal !pool) in
+         ["-depends-file"; tf ^ "_" ^ tf_id]
     in
     depends_file_l @ List.flatten
       (List.map (fun (f, tl) ->
