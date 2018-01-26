@@ -652,6 +652,10 @@ and skip_to_right_brace_in_proof = parse
 	Buffer.add_char buf ' ';
 	decr brace_level;
 	if !brace_level = 0 then false else skip_to_right_brace_in_proof lexbuf }
+  | '}'
+      { Buffer.add_char buf '}';
+	decr brace_level;
+	if !brace_level = 0 then false else skip_to_right_brace_in_proof lexbuf }
   | eof { false }
   | _ { Buffer.add_char buf (lexeme_char lexbuf 0); skip_to_right_brace_in_proof lexbuf }
 
