@@ -549,13 +549,15 @@ and body = parse
 	    seen_let := false;
 	    skip_to_thm_assignment_and_dot lexbuf
 	  end
-	else if !seen_mod then
+	else if !seen_mod && s <> "Import" then
 	  begin
 	    curr_mod := if s = "Type" then None else Some s;
 	    seen_mod := false;
 	    paren_level := 0;
 	    skip_to_mod_assignment_and_dot lexbuf
 	  end
+	else if !seen_mod && s = "Import" then
+          body lexbuf
 	else if !seen_end then
 	  begin
 	    begin match !curr_mod with None -> () | Some m -> if m = s then curr_mod := None end;
