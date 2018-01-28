@@ -161,7 +161,7 @@
   let seen_let = ref false
 
   let curr_thm = ref None
-  let curr_mod = ref None
+  let curr_mod = ref []
   let in_proof = ref None
 
   let delim = ref ""
@@ -191,7 +191,7 @@
     seen_end := false;
     seen_let := false;
     curr_thm := None;
-    curr_mod := None;
+    curr_mod := [];
     in_proof := None
 
   let buf = Buffer.create 1000
@@ -409,15 +409,15 @@ rule coq_bol = parse
 	  begin
 	    let s = lexeme lexbuf in
 	    let is_admitted = s = "Admitted" in
-	    let mo = match !curr_mod with Some m -> (Printf.sprintf "%s." m) | None -> "" in
+	    let mo = List.fold_right (fun a b -> Printf.sprintf "%s.%s" b a) !curr_mod "" in
 	    let prf = String.trim (Buffer.contents buf) in
 	    let prf_digest = !digest prf in
 	    let row =
 	      if !show_body then
-		Printf.sprintf "%s { \"name\": \"%s%s.%s%s\", \"isAdmitted\": %B, \"body\": \"%s\", \"bodyDigest\": \"%s\" }"
+		Printf.sprintf "%s { \"name\": \"%s%s%s.%s\", \"isAdmitted\": %B, \"body\": \"%s\", \"bodyDigest\": \"%s\" }"
 		  !delim !namespace !modname mo thm is_admitted prf prf_digest
 	      else
-		Printf.sprintf "%s { \"name\": \"%s%s.%s%s\", \"isAdmitted\": %B, \"bodyDigest\": \"%s\" }"
+		Printf.sprintf "%s { \"name\": \"%s%s%s.%s\", \"isAdmitted\": %B, \"bodyDigest\": \"%s\" }"
 		  !delim !namespace !modname mo thm is_admitted prf_digest
 	    in
 	    printf row;
@@ -475,15 +475,15 @@ and coq = parse
 	  begin
 	    let s = lexeme lexbuf in
 	    let is_admitted = s = "Admitted" in
-	    let mo = match !curr_mod with Some m -> (Printf.sprintf "%s." m) | None -> "" in
+	    let mo = List.fold_right (fun a b -> Printf.sprintf "%s.%s" b a) !curr_mod "" in
 	    let prf = String.trim (Buffer.contents buf) in
 	    let prf_digest = !digest prf in
 	    let row =
 	      if !show_body then
-		Printf.sprintf "%s { \"name\": \"%s%s.%s%s\", \"isAdmitted\": %B, \"body\": \"%s\", \"bodyDigest\": \"%s\" }"
+		Printf.sprintf "%s { \"name\": \"%s%s%s.%s\", \"isAdmitted\": %B, \"body\": \"%s\", \"bodyDigest\": \"%s\" }"
 		  !delim !namespace !modname mo thm is_admitted prf prf_digest
 	      else
-		Printf.sprintf "%s { \"name\": \"%s%s.%s%s\", \"isAdmitted\": %B, \"bodyDigest\": \"%s\" }"
+		Printf.sprintf "%s { \"name\": \"%s%s%s.%s\", \"isAdmitted\": %B, \"bodyDigest\": \"%s\" }"
 		  !delim !namespace !modname mo thm is_admitted prf_digest
 	    in
 	    printf row;
@@ -551,7 +551,7 @@ and body = parse
 	  end
 	else if !seen_mod && s <> "Import" then
 	  begin
-	    curr_mod := if s = "Type" then None else Some s;
+	    curr_mod := if s = "Type" then !curr_mod else s :: !curr_mod;
 	    seen_mod := false;
 	    paren_level := 0;
 	    skip_to_mod_assignment_and_dot lexbuf
@@ -560,7 +560,7 @@ and body = parse
           body lexbuf
 	else if !seen_end then
 	  begin
-	    begin match !curr_mod with None -> () | Some m -> if m = s then curr_mod := None end;
+	    begin match !curr_mod with [] -> () | m :: ml -> if m = s then curr_mod := ml end;
 	    seen_end := false;
 	    skip_to_dot lexbuf
 	  end
@@ -589,7 +589,7 @@ and skip_to_mod_assignment_and_dot = parse
 	  skip_to_mod_assignment_and_dot lexbuf }
   | ":=" { if !paren_level = 0 then
              begin
-              curr_mod := None;
+              curr_mod := List.tl !curr_mod;
               skip_to_dot lexbuf
 	     end
            else
