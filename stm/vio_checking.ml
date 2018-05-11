@@ -32,6 +32,7 @@ module Pool = Map.Make(IntOT)
 let schedule_vio_depends_task_checking j tsfs tpl =
   if j < 1 then Errors.error "The number of workers must be bigger than 0";
   let jobs = ref [] in
+  let job_count = ref 0 in
   List.iter (fun (ts, f) ->
     let f =
       if Filename.check_suffix f ".vio" then Filename.chop_extension f
@@ -90,9 +91,10 @@ let schedule_vio_depends_task_checking j tsfs tpl =
       match tpl with
       | None -> []
       | Some tf ->
-         let tf_id = string_of_int (Pool.cardinal !pool) in
+         let tf_id = string_of_int !job_count in
          ["-depends-file"; tf ^ "_" ^ tf_id]
     in
+    job_count := !job_count + 1;
     depends_file_l @ List.flatten
       (List.map (fun (f, tl) ->
         "-check-vio-depends-tasks" ::
